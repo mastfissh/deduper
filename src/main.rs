@@ -30,19 +30,25 @@ fn byte_count_file(path: &Path) -> BoxResult<u64> {
 fn main() {
   let mut dupes: HashSet<String> = HashSet::new();
   let mut file_sizes: HashMap<u64, String> = HashMap::new();
+  let mut paths: Vec<String> = Vec::new();
   for arg in env::args() {
     let path = Path::new(&arg);
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-      let current_path = format!("{}", entry.path().display());
-      if let Ok(data) = byte_count_file(entry.path()) {
-        if let Some(path) = file_sizes.get(&data) {
-          dupes.insert(current_path.clone());
-          dupes.insert(path.to_string());
-        }
-        file_sizes.insert(data, current_path.clone());
-      }
+      paths.push(entry.path().display().to_string());
     }
   }
+
+  for path in paths {
+    let current_path = format!("{}", path);
+    if let Ok(data) = byte_count_file(Path::new(&path)) {
+      if let Some(path) = file_sizes.get(&data) {
+        dupes.insert(current_path.clone());
+        dupes.insert(path.to_string());
+      }
+      file_sizes.insert(data, current_path.clone());
+    }
+  }
+
   let mut def_dupes: HashSet<String> = HashSet::new();
   let mut file_hashes: HashMap<HashResult, String> = HashMap::new();
   for dupe in dupes {
