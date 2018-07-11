@@ -1,0 +1,9 @@
+[package]
+name = "dedupe"
+version = "0.1.0"
+authors = ["Justin Lambert <mastfish@gmail.com>"]
+
+[dependencies]
+walkdir = "2"
+blake2 = "0.7"
+digest = { version = "0.7", features = ["std"]}
