@@ -19,16 +19,17 @@ fn hash_file(entry: walkdir::DirEntry) -> BoxResult<GenericArray<u8, U64>> {
 }
 
 fn main() {
-  let args: Vec<String> = env::args().collect();
-  let path = Path::new(&args[1]);
   let mut file_hashes = HashMap::new();
-  for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-    let thing = format!("{}", entry.path().display());
-    if let Ok(data) = hash_file(entry) {
-      if let Some(path) = file_hashes.get(&data) {
-        println!("dupe {} | {}", thing, path);
+  for arg in env::args() {
+    let path = Path::new(&arg);
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+      let thing = format!("{}", entry.path().display());
+      if let Ok(data) = hash_file(entry) {
+        if let Some(path) = file_hashes.get(&data) {
+          println!("dupe {} | {}", thing, path);
+        }
+        file_hashes.insert(data, thing);
       }
-      file_hashes.insert(data, thing);
     }
   }
 
