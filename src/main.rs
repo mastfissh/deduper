@@ -24,19 +24,12 @@ fn main() {
   let mut file_hashes = HashMap::new();
   for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
     let thing = format!("{}", entry.path().display());
-
-    match hash_file(entry) {
-      Err(_err) => {
-      },
-      Ok(data) => {
-        match file_hashes.get(&data) {
-          Some(path) => println!("dupe {} | {}", thing, path),
-          None => {}
-        }
-        file_hashes.insert(data, thing);
+    if let Ok(data) = hash_file(entry) {
+      if let Some(path) = file_hashes.get(&data) {
+        println!("dupe {} | {}", thing, path);
       }
+      file_hashes.insert(data, thing);
     }
   }
-
 
 }
