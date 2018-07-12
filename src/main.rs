@@ -45,24 +45,6 @@ fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
   return Ok(Blake2b::digest_reader(&mut file)?);
 }
 
-fn get_file_hash_identical<'a, I>(paths: I) -> HashSet<PathBuf>
-where
-    I: Iterator<Item = &'a PathBuf>,
- {
-  let mut def_dupes: HashSet<PathBuf> = HashSet::new();
-  let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
-  for current_path in paths {
-    if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.get(&data) {
-        def_dupes.insert(current_path.clone());
-        def_dupes.insert(path.to_path_buf());
-      }
-      file_hashes.insert(data, current_path.clone());
-    }
-  }
-  return def_dupes
-}
-
 fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   let mut buffer = [0; 1000];
@@ -70,14 +52,14 @@ fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   return Ok(Blake2b::digest_reader(&mut buffer.as_ref())?);
 }
 
-fn get_first_file_hash_identical<'a, I>(paths: I) -> HashSet<PathBuf>
+fn generic_check<'a, I>(check_fn: &Fn(PathBuf) -> BoxResult<HashResult>, paths: I) -> HashSet<PathBuf>
 where
     I: Iterator<Item = &'a PathBuf>,
- {
+{
   let mut def_dupes: HashSet<PathBuf> = HashSet::new();
   let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
   for current_path in paths {
-    if let Ok(data) = hash_first_file(PathBuf::from(&current_path)) {
+    if let Ok(data) = check_fn(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.get(&data) {
         def_dupes.insert(current_path.clone());
         def_dupes.insert(path.to_path_buf());
@@ -97,8 +79,8 @@ fn main() {
     }
   }
   let paths: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
-  let paths: HashSet<PathBuf> = get_first_file_hash_identical(paths.iter());
-  let paths: HashSet<PathBuf> = get_file_hash_identical(paths.iter());
+  let paths: HashSet<PathBuf> = generic_check(&hash_first_file, paths.iter());
+  let paths: HashSet<PathBuf> = generic_check(&hash_file, paths.iter());
 
   for dupe in paths {
     println!("dupe file: {}", dupe.display());
