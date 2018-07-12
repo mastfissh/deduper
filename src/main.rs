@@ -62,7 +62,6 @@ fn main() {
       paths.insert(PathBuf::from(entry.path()));
     }
   }
-  // let paths: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
   let paths: HashSet<PathBuf> = generic_check(&byte_count_file, paths.iter());
   let paths: HashSet<PathBuf> = generic_check(&hash_first_file, paths.iter());
   let paths: HashSet<PathBuf> = generic_check(&hash_file, paths.iter());
