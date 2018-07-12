@@ -10,58 +10,57 @@ use walkdir::WalkDir;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 use blake2::{Blake2b, Digest};
 
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
 
-fn hash_file(path: &Path) -> BoxResult<HashResult> {
+fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   return Ok(Blake2b::digest_reader(&mut file)?);
 }
 
-fn byte_count_file(path: &Path) -> BoxResult<u64> {
+fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   let metadata = fs::metadata(path)?;
   return Ok(metadata.len());
 }
 
 
 fn main() {
-  let mut dupes: HashSet<String> = HashSet::new();
-  let mut file_sizes: HashMap<u64, String> = HashMap::new();
-  let mut paths: Vec<String> = Vec::new();
+  let mut dupes: HashSet<PathBuf> = HashSet::new();
+  let mut file_sizes: HashMap<u64, PathBuf> = HashMap::new();
+  let mut paths: Vec<PathBuf> = Vec::new();
   for arg in env::args() {
-    let path = Path::new(&arg);
+    let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-      paths.push(entry.path().display().to_string());
+      paths.push(PathBuf::from(entry.path()));
     }
   }
 
-  for path in paths {
-    let current_path = format!("{}", path);
-    if let Ok(data) = byte_count_file(Path::new(&path)) {
+  for current_path in paths {
+    if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_sizes.get(&data) {
         dupes.insert(current_path.clone());
-        dupes.insert(path.to_string());
+        dupes.insert(path.to_path_buf());
       }
       file_sizes.insert(data, current_path.clone());
     }
   }
 
-  let mut def_dupes: HashSet<String> = HashSet::new();
-  let mut file_hashes: HashMap<HashResult, String> = HashMap::new();
-  for dupe in dupes {
-    let current_path = format!("{}", dupe);
-    if let Ok(data) = hash_file(Path::new(&dupe)) {
+  let mut def_dupes: HashSet<PathBuf> = HashSet::new();
+  let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
+  for current_path in dupes {
+
+    if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.get(&data) {
         def_dupes.insert(current_path.clone());
-        def_dupes.insert(path.to_string());
+        def_dupes.insert(path.to_path_buf());
       }
       file_hashes.insert(data, current_path.clone());
     }
   }
   for dupe in def_dupes {
-    println!("dupe file: {}", dupe);
+    println!("dupe file: {}", dupe.display());
   }
 }
