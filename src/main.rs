@@ -17,15 +17,6 @@ use blake2::{Blake2b, Digest};
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
 
-fn get_paths(path: PathBuf) -> Vec<PathBuf> {
-  let mut paths: Vec<PathBuf> = Vec::new();
-  for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-    paths.push(PathBuf::from(entry.path()));
-  }
-  return paths;
-}
-
-
 fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   let metadata = fs::metadata(path)?;
   return Ok(metadata.len());
@@ -72,7 +63,6 @@ where
   return def_dupes
 }
 
-
 fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   let mut buffer = [0; 1000];
@@ -98,14 +88,14 @@ where
   return def_dupes
 }
 
-
 fn main() {
-  let mut paths: Vec<PathBuf> = Vec::new();
+  let mut paths: HashSet<PathBuf> = HashSet::new();
   for arg in env::args() {
     let path = PathBuf::from(&arg);
-    paths.append(&mut get_paths(path));
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+      paths.insert(PathBuf::from(entry.path()));
+    }
   }
-
   let paths: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
   let paths: HashSet<PathBuf> = get_first_file_hash_identical(paths.iter());
   let paths: HashSet<PathBuf> = get_file_hash_identical(paths.iter());
