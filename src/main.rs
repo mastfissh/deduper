@@ -26,18 +26,17 @@ fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   return Ok(metadata.len());
 }
 
+fn get_paths(path: PathBuf) -> Vec<PathBuf> {
+  let mut paths: Vec<PathBuf> = Vec::new();
+  for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+    paths.push(PathBuf::from(entry.path()));
+  }
+  return paths;
+}
 
-fn main() {
+fn get_byte_count_identical(paths: Vec<PathBuf>) -> HashSet<PathBuf> {
   let mut dupes: HashSet<PathBuf> = HashSet::new();
   let mut file_sizes: HashMap<u64, PathBuf> = HashMap::new();
-  let mut paths: Vec<PathBuf> = Vec::new();
-  for arg in env::args() {
-    let path = PathBuf::from(&arg);
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-      paths.push(PathBuf::from(entry.path()));
-    }
-  }
-
   for current_path in paths {
     if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_sizes.get(&data) {
@@ -47,11 +46,13 @@ fn main() {
       file_sizes.insert(data, current_path.clone());
     }
   }
+  return dupes
+}
 
+fn get_file_hash_identical(paths: HashSet<PathBuf>) -> HashSet<PathBuf> {
   let mut def_dupes: HashSet<PathBuf> = HashSet::new();
   let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
-  for current_path in dupes {
-
+  for current_path in paths {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.get(&data) {
         def_dupes.insert(current_path.clone());
@@ -60,6 +61,19 @@ fn main() {
       file_hashes.insert(data, current_path.clone());
     }
   }
+  return def_dupes
+}
+
+fn main() {
+  let mut paths: Vec<PathBuf> = Vec::new();
+  for arg in env::args() {
+    let path = PathBuf::from(&arg);
+    paths.append(&mut get_paths(path));
+  }
+
+  let dupes: HashSet<PathBuf> = get_byte_count_identical(paths);
+  let def_dupes: HashSet<PathBuf> = get_file_hash_identical(dupes);
+
   for dupe in def_dupes {
     println!("dupe file: {}", dupe.display());
   }
