@@ -34,7 +34,10 @@ fn get_paths(path: PathBuf) -> Vec<PathBuf> {
   return paths;
 }
 
-fn get_byte_count_identical(paths: Vec<PathBuf>) -> HashSet<PathBuf> {
+fn get_byte_count_identical<'a, I>(paths: I) -> HashSet<PathBuf>
+where
+    I: Iterator<Item = &'a PathBuf>,
+{
   let mut dupes: HashSet<PathBuf> = HashSet::new();
   let mut file_sizes: HashMap<u64, PathBuf> = HashMap::new();
   for current_path in paths {
@@ -49,7 +52,10 @@ fn get_byte_count_identical(paths: Vec<PathBuf>) -> HashSet<PathBuf> {
   return dupes
 }
 
-fn get_file_hash_identical(paths: HashSet<PathBuf>) -> HashSet<PathBuf> {
+fn get_file_hash_identical<'a, I>(paths: I) -> HashSet<PathBuf>
+where
+    I: Iterator<Item = &'a PathBuf>,
+ {
   let mut def_dupes: HashSet<PathBuf> = HashSet::new();
   let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
   for current_path in paths {
@@ -71,8 +77,8 @@ fn main() {
     paths.append(&mut get_paths(path));
   }
 
-  let dupes: HashSet<PathBuf> = get_byte_count_identical(paths);
-  let def_dupes: HashSet<PathBuf> = get_file_hash_identical(dupes);
+  let dupes: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
+  let def_dupes: HashSet<PathBuf> = get_file_hash_identical(dupes.iter());
 
   for dupe in def_dupes {
     println!("dupe file: {}", dupe.display());
