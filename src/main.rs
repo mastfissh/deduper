@@ -2,6 +2,7 @@ extern crate walkdir;
 extern crate blake2;
 
 use std::io::Read;
+use std::hash::Hash;
 use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
 use blake2::digest::generic_array::typenum::U64;
@@ -22,24 +23,6 @@ fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   return Ok(metadata.len());
 }
 
-fn get_byte_count_identical<'a, I>(paths: I) -> HashSet<PathBuf>
-where
-    I: Iterator<Item = &'a PathBuf>,
-{
-  let mut dupes: HashSet<PathBuf> = HashSet::new();
-  let mut file_sizes: HashMap<u64, PathBuf> = HashMap::new();
-  for current_path in paths {
-    if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
-      if let Some(path) = file_sizes.get(&data) {
-        dupes.insert(current_path.clone());
-        dupes.insert(path.to_path_buf());
-      }
-      file_sizes.insert(data, current_path.clone());
-    }
-  }
-  return dupes
-}
-
 fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   return Ok(Blake2b::digest_reader(&mut file)?);
@@ -52,12 +35,13 @@ fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   return Ok(Blake2b::digest_reader(&mut buffer.as_ref())?);
 }
 
-fn generic_check<'a, I>(check_fn: &Fn(PathBuf) -> BoxResult<HashResult>, paths: I) -> HashSet<PathBuf>
+fn generic_check<'a, I, T>(check_fn: &Fn(PathBuf) -> BoxResult<T>, paths: I) -> HashSet<PathBuf>
 where
     I: Iterator<Item = &'a PathBuf>,
+    T: Eq + Hash
 {
   let mut def_dupes: HashSet<PathBuf> = HashSet::new();
-  let mut file_hashes: HashMap<HashResult, PathBuf> = HashMap::new();
+  let mut file_hashes: HashMap<T, PathBuf> = HashMap::new();
   for current_path in paths {
     if let Ok(data) = check_fn(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.get(&data) {
@@ -78,7 +62,8 @@ fn main() {
       paths.insert(PathBuf::from(entry.path()));
     }
   }
-  let paths: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
+  // let paths: HashSet<PathBuf> = get_byte_count_identical(paths.iter());
+  let paths: HashSet<PathBuf> = generic_check(&byte_count_file, paths.iter());
   let paths: HashSet<PathBuf> = generic_check(&hash_first_file, paths.iter());
   let paths: HashSet<PathBuf> = generic_check(&hash_file, paths.iter());
 
