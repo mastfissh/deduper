@@ -41,7 +41,7 @@ where
     I: Iterator<Item = &'a PathBuf>,
     T: Eq + Hash
 {
-  let mut def_dupes: HashSet<PathBuf> = HashSet::new();
+  let mut def_dupes = HashSet::new();
   let mut file_hashes: HashMap<T, PathBuf> = HashMap::new();
   for current_path in paths {
     if let Ok(data) = check_fn(PathBuf::from(&current_path)) {
@@ -64,7 +64,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 
 fn main() {
-  let mut paths: HashSet<PathBuf> = HashSet::new();
+  let mut paths = HashSet::new();
   for arg in env::args() {
     let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
