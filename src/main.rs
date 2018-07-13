@@ -20,19 +20,19 @@ type HashResult = GenericArray<u8, U64>;
 
 fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   let metadata = fs::metadata(path)?;
-  return Ok(metadata.len());
+  Ok(metadata.len())
 }
 
 fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
-  return Ok(Blake2b::digest_reader(&mut file)?);
+  Ok(Blake2b::digest_reader(&mut file)?)
 }
 
 fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   let mut buffer = [0; 1000];
   file.read(&mut buffer[..])?;
-  return Ok(Blake2b::digest_reader(&mut buffer.as_ref())?);
+  Ok(Blake2b::digest_reader(&mut buffer.as_ref())?)
 }
 
 fn generic_check<'a, I, T>(check_fn: &Fn(PathBuf) -> BoxResult<T>, paths: I) -> HashSet<PathBuf>
@@ -51,7 +51,7 @@ where
       file_hashes.insert(data, current_path.clone());
     }
   }
-  return def_dupes
+  def_dupes
 }
 
 fn main() {
@@ -62,9 +62,9 @@ fn main() {
       paths.insert(PathBuf::from(entry.path()));
     }
   }
-  let paths: HashSet<PathBuf> = generic_check(&byte_count_file, paths.iter());
-  let paths: HashSet<PathBuf> = generic_check(&hash_first_file, paths.iter());
-  let paths: HashSet<PathBuf> = generic_check(&hash_file, paths.iter());
+  let paths = generic_check(&byte_count_file, paths.iter());
+  let paths = generic_check(&hash_first_file, paths.iter());
+  let paths = generic_check(&hash_file, paths.iter());
 
   for dupe in paths {
     println!("dupe file: {}", dupe.display());
