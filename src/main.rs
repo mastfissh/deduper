@@ -1,6 +1,7 @@
 extern crate walkdir;
 extern crate blake2;
 
+use walkdir::DirEntry;
 use std::io::Read;
 use std::hash::Hash;
 use std::error::Error;
@@ -54,11 +55,19 @@ where
   def_dupes
 }
 
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry.file_name()
+         .to_str()
+         .map(|s| s.starts_with("."))
+         .unwrap_or(false)
+}
+
+
 fn main() {
   let mut paths: HashSet<PathBuf> = HashSet::new();
   for arg in env::args() {
     let path = PathBuf::from(&arg);
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.insert(PathBuf::from(entry.path()));
     }
   }
