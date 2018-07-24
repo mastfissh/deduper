@@ -45,11 +45,10 @@ where
   let mut file_hashes: HashMap<T, PathBuf> = HashMap::new();
   for current_path in paths {
     if let Ok(data) = check_fn(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.get(&data) {
+      if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         def_dupes.insert(current_path.clone());
         def_dupes.insert(path.to_path_buf());
       }
-      file_hashes.insert(data, current_path.clone());
     }
   }
   def_dupes
@@ -76,6 +75,6 @@ fn main() {
   let paths = generic_check(&hash_file, paths.iter());
 
   for dupe in paths {
-    println!("dupe file: {}", dupe.display());
+    println!("dupe: {}", dupe.display());
   }
 }
