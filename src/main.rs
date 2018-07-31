@@ -67,12 +67,12 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 fn main() {
   let paths = Arc::new(Mutex::new(HashSet::new()));
-  for arg in env::args() {
+  env::args().for_each(|arg| {
     let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.lock().unwrap().insert(PathBuf::from(entry.path()));
     }
-  }
+  });
   let paths = generic_check(byte_count_file, paths.lock().unwrap().par_iter());
   let paths = generic_check(hash_first_file, paths.lock().unwrap().par_iter());
   let paths = generic_check(hash_file, paths.lock().unwrap().par_iter());
