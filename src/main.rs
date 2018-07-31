@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use blake2::{Blake2b, Digest};
+use std::time::{Instant};
 
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
@@ -64,8 +65,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
          .unwrap_or(false)
 }
 
-
 fn main() {
+  let now = Instant::now();
   let paths = Arc::new(Mutex::new(HashSet::new()));
   let vec: Vec<_> = env::args().collect();
   vec.par_iter().for_each(|arg| {
@@ -74,11 +75,16 @@ fn main() {
       paths.lock().unwrap().insert(PathBuf::from(entry.path()));
     }
   });
+  println!("Time since start was {}", now.elapsed().as_secs());
   let paths = generic_check(byte_count_file, paths.lock().unwrap().par_iter());
+  println!("Time since start was {}", now.elapsed().as_secs());
   let paths = generic_check(hash_first_file, paths.lock().unwrap().par_iter());
+  println!("Time since start was {}", now.elapsed().as_secs());
   let paths = generic_check(hash_file, paths.lock().unwrap().par_iter());
+  println!("Time since start was {}", now.elapsed().as_secs());
   for dupe in paths.lock().unwrap().clone() {
     println!("dupe: {}", dupe.display());
   }
+  println!("Time since start was {}", now.elapsed().as_secs());
 
 }
