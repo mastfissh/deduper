@@ -67,7 +67,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 fn main() {
   let paths = Arc::new(Mutex::new(HashSet::new()));
-  env::args().for_each(|arg| {
+  let vec: Vec<_> = env::args().collect();
+  vec.par_iter().for_each(|arg| {
     let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.lock().unwrap().insert(PathBuf::from(entry.path()));
