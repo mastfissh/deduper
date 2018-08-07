@@ -5,7 +5,6 @@ extern crate rayon;
 use rayon::prelude::*;
 use walkdir::DirEntry;
 use std::io::Read;
-use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
@@ -40,31 +39,15 @@ fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   Ok(Blake2b::digest_reader(&mut buffer.as_ref())?)
 }
 
-fn generic_check<'a, I, T>(check_fn: fn(PathBuf) -> BoxResult<T>, paths: I) -> (Arc<Mutex<HashSet<PathBuf>>>, Arc<Mutex<Vec<(PathBuf, PathBuf)>>>)
-where
-    I: ParallelIterator<Item = &'a PathBuf>,
-    T: Eq + Hash + Sync + Send
-{
-  let def_dupes = Arc::new(Mutex::new(HashSet::new()));
-  let file_hashes: Arc<Mutex<HashMap<T, PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
-  let out = Arc::new(Mutex::new(Vec::<(PathBuf, PathBuf)>::new()));
-  paths.for_each(|current_path| {
-    if let Ok(data) = check_fn(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
-        def_dupes.lock().unwrap().insert(current_path.clone());
-        def_dupes.lock().unwrap().insert(path.to_path_buf());
-        out.lock().unwrap().push((current_path.clone(), path.to_path_buf()));
-      }
-    }
-  });
-  (def_dupes, out)
-}
-
 fn is_hidden(entry: &DirEntry) -> bool {
     entry.file_name()
          .to_str()
          .map(|s| s.starts_with("."))
          .unwrap_or(false)
+}
+
+fn print_timing_info(now: Instant){
+  println!("Time since start was {}.{} secs", now.elapsed().as_secs(), now.elapsed().subsec_millis());
 }
 
 fn main() {
@@ -77,16 +60,44 @@ fn main() {
       paths.lock().unwrap().insert(PathBuf::from(entry.path()));
     }
   });
-  println!("Time since start was {}", now.elapsed().as_secs());
-  let (paths, _) = generic_check(byte_count_file, paths.lock().unwrap().par_iter());
-  println!("Time since start was {}", now.elapsed().as_secs());
-  let (paths, _) = generic_check(hash_first_file, paths.lock().unwrap().par_iter());
-  println!("Time since start was {}", now.elapsed().as_secs());
-  let (_, out) = generic_check(hash_file, paths.lock().unwrap().par_iter());
-  println!("Time since start was {}", now.elapsed().as_secs());
+
+  let def_dupes = Arc::new(Mutex::new(HashSet::new()));
+  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
+  paths.lock().unwrap().par_iter().for_each(|current_path| {
+    if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
+      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
+        def_dupes.lock().unwrap().insert(current_path.clone());
+        def_dupes.lock().unwrap().insert(path.to_path_buf());
+      }
+    }
+  });
+  let paths = def_dupes;
+
+  let def_dupes = Arc::new(Mutex::new(HashSet::new()));
+  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
+  paths.lock().unwrap().par_iter().for_each(|current_path| {
+    if let Ok(data) = hash_first_file(PathBuf::from(&current_path)) {
+      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
+        def_dupes.lock().unwrap().insert(current_path.clone());
+        def_dupes.lock().unwrap().insert(path.to_path_buf());
+      }
+    }
+  });
+  let paths = def_dupes;
+
+  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
+  let out = Arc::new(Mutex::new(Vec::<(PathBuf, PathBuf)>::new()));
+  paths.lock().unwrap().par_iter().for_each(|current_path| {
+    if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
+      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
+        out.lock().unwrap().push((current_path.clone(), path.to_path_buf()));
+      }
+    }
+  });
+
   for (dupe1, dupe2) in out.lock().unwrap().clone() {
     println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
   }
-  println!("Time since start was {}", now.elapsed().as_secs());
+  print_timing_info(now);
 
 }
