@@ -1,23 +1,22 @@
 extern crate walkdir;
 extern crate blake2;
 extern crate rayon;
+extern crate chashmap;
 
 use rayon::prelude::*;
 use walkdir::DirEntry;
 use std::io::Read;
-use std::sync::{Arc, Mutex};
 use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
 use blake2::digest::generic_array::typenum::U64;
 use std::fs::File;
 use std::env;
 use walkdir::WalkDir;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use blake2::{Blake2b, Digest};
 use std::time::{Instant};
+use chashmap::CHashMap;
 
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
@@ -52,52 +51,55 @@ fn print_timing_info(now: Instant){
 
 fn main() {
   let now = Instant::now();
-  let paths = Arc::new(Mutex::new(HashSet::new()));
+  let paths = CHashMap::new();
   let vec: Vec<_> = env::args().collect();
   vec.par_iter().for_each(|arg| {
     let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
-      paths.lock().unwrap().insert(PathBuf::from(entry.path()));
+      paths.insert(PathBuf::from(entry.path()), ());
     }
   });
 
-  let def_dupes = Arc::new(Mutex::new(HashSet::new()));
-  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
-  paths.lock().unwrap().par_iter().for_each(|current_path| {
+  let def_dupes = CHashMap::new();
+  let file_hashes = CHashMap::new();
+  let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
+  temp.par_iter().for_each(|current_path| {
     if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
-        def_dupes.lock().unwrap().insert(current_path.clone());
-        def_dupes.lock().unwrap().insert(path.to_path_buf());
+      if let Some(path) = file_hashes.insert(data, current_path.clone()) {
+        def_dupes.insert(current_path.clone(), ());
+        def_dupes.insert(path.to_path_buf(), ());
       }
     }
   });
   let paths = def_dupes;
 
-  let def_dupes = Arc::new(Mutex::new(HashSet::new()));
-  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
-  paths.lock().unwrap().par_iter().for_each(|current_path| {
+  let def_dupes = CHashMap::new();
+  let file_hashes = CHashMap::new();
+  let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
+  temp.par_iter().for_each(|current_path| {
     if let Ok(data) = hash_first_file(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
-        def_dupes.lock().unwrap().insert(current_path.clone());
-        def_dupes.lock().unwrap().insert(path.to_path_buf());
+      if let Some(path) = file_hashes.insert(data, current_path.clone()) {
+        def_dupes.insert(current_path.clone(),());
+        def_dupes.insert(path.to_path_buf(),());
       }
     }
   });
   let paths = def_dupes;
 
-  let file_hashes = Arc::new(Mutex::new(HashMap::new()));
-  let out = Arc::new(Mutex::new(Vec::<(PathBuf, PathBuf)>::new()));
-  paths.lock().unwrap().par_iter().for_each(|current_path| {
+  let file_hashes = CHashMap::new();
+  let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
+  let out = temp.par_iter().filter_map(|current_path| {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
-      if let Some(path) = file_hashes.lock().unwrap().insert(data, current_path.clone()) {
-        out.lock().unwrap().push((current_path.clone(), path.to_path_buf()));
+      if let Some(path) = file_hashes.insert(data, current_path.clone()) {
+        return Some((current_path.clone(), path.to_path_buf()));
       }
     }
+    None
   });
-
-  for (dupe1, dupe2) in out.lock().unwrap().clone() {
+  out.for_each(|item| {
+    let (dupe1, dupe2) = item;
     println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
-  }
+  });
   print_timing_info(now);
 
 }
