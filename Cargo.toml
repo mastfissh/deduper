@@ -8,3 +8,4 @@ publish = false
 walkdir = "2"
 blake2 = "0.7"
 digest = { version = "0.7", features = ["std"]}
+rayon = "1.0"
