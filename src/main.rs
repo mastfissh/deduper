@@ -23,11 +23,15 @@ use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 struct Opt {
-    #[structopt(raw(required = "true", min_values = "1"))]
-    paths: Vec<String>,
 
-    #[structopt(short = "t", long = "timing")]
-    timing: bool,
+  #[structopt(name = "paths", parse(from_os_str))]
+  paths: Vec<PathBuf>,
+
+  #[structopt(short = "t", long = "timing")]
+  timing: bool,
+
+  #[structopt(short = "o", long = "output", parse(from_os_str))]
+  output: Option<PathBuf>,
 
 }
 
@@ -67,8 +71,7 @@ fn main() {
   let opt = Opt::from_args();
   let now = Instant::now();
   let paths = CHashMap::new();
-  opt.paths.par_iter().for_each(|arg| {
-    let path = PathBuf::from(&arg);
+  opt.paths.par_iter().for_each(|path| {
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.insert(PathBuf::from(entry.path()), ());
     }
@@ -110,9 +113,14 @@ fn main() {
     }
     None
   });
+
   out.for_each(|item| {
     let (dupe1, dupe2) = item;
-    println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
+    if let Some(_) = &opt.output {
+      ;
+    } else {
+      println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
+    }
   });
   if opt.timing {
     print_timing_info(now);
