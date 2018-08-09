@@ -2,6 +2,8 @@ extern crate walkdir;
 extern crate blake2;
 extern crate rayon;
 extern crate chashmap;
+#[macro_use]
+extern crate structopt;
 
 use rayon::prelude::*;
 use walkdir::DirEntry;
@@ -10,13 +12,25 @@ use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
 use blake2::digest::generic_array::typenum::U64;
 use std::fs::File;
-use std::env;
+// use std::env;
 use walkdir::WalkDir;
 use std::fs;
 use std::path::PathBuf;
 use blake2::{Blake2b, Digest};
 use std::time::{Instant};
 use chashmap::CHashMap;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct Opt {
+    #[structopt(raw(required = "true", min_values = "1"))]
+    paths: Vec<String>,
+
+    #[structopt(short = "t", long = "timing")]
+    timing: bool,
+
+}
+
 
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
@@ -50,10 +64,10 @@ fn print_timing_info(now: Instant){
 }
 
 fn main() {
+  let opt = Opt::from_args();
   let now = Instant::now();
   let paths = CHashMap::new();
-  let vec: Vec<_> = env::args().collect();
-  vec.par_iter().for_each(|arg| {
+  opt.paths.par_iter().for_each(|arg| {
     let path = PathBuf::from(&arg);
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.insert(PathBuf::from(entry.path()), ());
@@ -100,6 +114,8 @@ fn main() {
     let (dupe1, dupe2) = item;
     println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
   });
-  print_timing_info(now);
+  if opt.timing {
+    print_timing_info(now);
+  }
 
 }
