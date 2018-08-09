@@ -106,18 +106,18 @@ fn main() {
 
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
-  let results: Vec<(PathBuf, PathBuf)> = temp.par_iter().filter_map(|current_path| {
+  let output_string = temp.par_iter().filter_map(|current_path| {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         return Some((current_path.clone(), path.to_path_buf()));
       }
     }
     None
-  }).collect();
-  let output_string : String = results.iter().fold("".to_string(), |mut start, item|{
+  }).map(|item| {
     let (dupe1, dupe2) = item;
-    let data = &format!(" {} | {} \n", dupe1.display(), dupe2.display());
-    start.push_str(data);
+    format!(" {} | {} \n", dupe1.display(), dupe2.display())
+  }).reduce(String::new, |mut start, item| {
+    start.push_str(&item);
     start
   });
   if let Some(path) = opt.output{
