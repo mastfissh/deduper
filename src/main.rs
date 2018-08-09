@@ -6,6 +6,7 @@ extern crate chashmap;
 extern crate structopt;
 
 use rayon::prelude::*;
+use std::io::prelude::*;
 use walkdir::DirEntry;
 use std::io::Read;
 use std::error::Error;
@@ -105,23 +106,26 @@ fn main() {
 
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
-  let out = temp.par_iter().filter_map(|current_path| {
+  let results: Vec<(PathBuf, PathBuf)> = temp.par_iter().filter_map(|current_path| {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         return Some((current_path.clone(), path.to_path_buf()));
       }
     }
     None
-  });
-
-  out.for_each(|item| {
+  }).collect();
+  let output_string : String = results.iter().fold("".to_string(), |mut start, item|{
     let (dupe1, dupe2) = item;
-    if let Some(_) = &opt.output {
-      ;
-    } else {
-      println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
-    }
+    let data = &format!(" {} | {} \n", dupe1.display(), dupe2.display());
+    start.push_str(data);
+    start
   });
+  if let Some(path) = opt.output{
+    let mut f = File::create(path).unwrap();
+    f.write(output_string.as_bytes()).unwrap();
+  } else {
+    println!("{}", output_string);
+  }
   if opt.timing {
     print_timing_info(now);
   }
