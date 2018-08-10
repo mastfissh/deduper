@@ -13,7 +13,6 @@ use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
 use blake2::digest::generic_array::typenum::U64;
 use std::fs::File;
-// use std::env;
 use walkdir::WalkDir;
 use std::fs;
 use std::path::PathBuf;
@@ -78,12 +77,13 @@ fn main() {
     }
   });
 
+  println!("{} files found ", paths.len());
+
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
   temp.par_iter().for_each(|current_path| {
     if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
-      println!(" {} ", data);
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         def_dupes.insert(current_path.clone(), ());
         def_dupes.insert(path.to_path_buf(), ());
@@ -92,7 +92,7 @@ fn main() {
   });
   let paths = def_dupes;
 
-  println!(" {} potential dupes after filesize cull", paths.len());
+  println!("{} potential dupes after filesize cull", paths.len());
 
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
@@ -107,7 +107,7 @@ fn main() {
   });
   let paths = def_dupes;
 
-  println!(" {} potential dupes after first 500 bytes cull", paths.len());
+  println!("{} potential dupes after first 500 bytes cull", paths.len());
 
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
