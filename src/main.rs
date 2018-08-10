@@ -111,14 +111,18 @@ fn main() {
 
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
-  let output_string = temp.par_iter().filter_map(|current_path| {
+  let temp: Vec<(PathBuf, PathBuf)> = temp.par_iter().filter_map(|current_path| {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         return Some((current_path.clone(), path.to_path_buf()));
       }
     }
     None
-  }).map(|item| {
+  }).collect();
+
+  println!("{} dupes after full file hashing", temp.len());
+
+  let output_string = temp.par_iter().map(|item| {
     let (dupe1, dupe2) = item;
     format!(" {} | {} \n", dupe1.display(), dupe2.display())
   }).reduce(String::new, |mut start, item| {
