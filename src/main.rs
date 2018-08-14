@@ -2,21 +2,39 @@ extern crate walkdir;
 extern crate blake2;
 extern crate rayon;
 extern crate chashmap;
+#[macro_use]
+extern crate structopt;
 
 use rayon::prelude::*;
+use std::io::prelude::*;
 use walkdir::DirEntry;
 use std::io::Read;
 use std::error::Error;
 use blake2::digest::generic_array::GenericArray;
 use blake2::digest::generic_array::typenum::U64;
 use std::fs::File;
-use std::env;
 use walkdir::WalkDir;
 use std::fs;
 use std::path::PathBuf;
 use blake2::{Blake2b, Digest};
 use std::time::{Instant};
 use chashmap::CHashMap;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct Opt {
+
+  #[structopt(name = "paths", parse(from_os_str))]
+  paths: Vec<PathBuf>,
+
+  #[structopt(short = "t", long = "timing")]
+  timing: bool,
+
+  #[structopt(short = "o", long = "output", parse(from_os_str))]
+  output: Option<PathBuf>,
+
+}
+
 
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
@@ -50,15 +68,16 @@ fn print_timing_info(now: Instant){
 }
 
 fn main() {
+  let opt = Opt::from_args();
   let now = Instant::now();
   let paths = CHashMap::new();
-  let vec: Vec<_> = env::args().collect();
-  vec.par_iter().for_each(|arg| {
-    let path = PathBuf::from(&arg);
+  opt.paths.par_iter().for_each(|path| {
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.insert(PathBuf::from(entry.path()), ());
     }
   });
+
+  println!("{} files found ", paths.len());
 
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
@@ -73,6 +92,8 @@ fn main() {
   });
   let paths = def_dupes;
 
+  println!("{} potential dupes after filesize cull", paths.len());
+
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
@@ -86,20 +107,37 @@ fn main() {
   });
   let paths = def_dupes;
 
+  println!("{} potential dupes after first 500 bytes cull", paths.len());
+
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
-  let out = temp.par_iter().filter_map(|current_path| {
+  let temp: Vec<(PathBuf, PathBuf)> = temp.par_iter().filter_map(|current_path| {
     if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         return Some((current_path.clone(), path.to_path_buf()));
       }
     }
     None
-  });
-  out.for_each(|item| {
+  }).collect();
+
+  println!("{} dupes after full file hashing", temp.len());
+
+  let output_string = temp.par_iter().map(|item| {
     let (dupe1, dupe2) = item;
-    println!("dupe: {} | AND | {}", dupe1.display(), dupe2.display());
+    format!(" {} | {} \n", dupe1.display(), dupe2.display())
+  }).reduce(String::new, |mut start, item| {
+    start.push_str(&item);
+    start
   });
-  print_timing_info(now);
+
+  if let Some(path) = opt.output{
+    let mut f = File::create(path).unwrap();
+    f.write(output_string.as_bytes()).unwrap();
+  } else {
+    println!("{}", output_string);
+  }
+  if opt.timing {
+    print_timing_info(now);
+  }
 
 }
