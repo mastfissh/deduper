@@ -30,6 +30,9 @@ struct Opt {
   #[structopt(short = "t", long = "timing")]
   timing: bool,
 
+  #[structopt(short = "d", long = "debug")]
+  debug: bool,
+
   #[structopt(short = "o", long = "output", parse(from_os_str))]
   output: Option<PathBuf>,
 
@@ -77,7 +80,9 @@ fn main() {
     }
   });
 
-  println!("{} files found ", paths.len());
+  if opt.debug {
+    println!("{} files found ", paths.len());
+  }
 
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
@@ -92,7 +97,11 @@ fn main() {
   });
   let paths = def_dupes;
 
-  println!("{} potential dupes after filesize cull", paths.len());
+
+  if opt.debug {
+    println!("{} potential dupes after filesize cull", paths.len());
+  }
+
 
   let def_dupes = CHashMap::new();
   let file_hashes = CHashMap::new();
@@ -107,7 +116,9 @@ fn main() {
   });
   let paths = def_dupes;
 
-  println!("{} potential dupes after first 500 bytes cull", paths.len());
+  if opt.debug {
+    println!("{} potential dupes after first 500 bytes cull", paths.len());
+  }
 
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
@@ -120,7 +131,9 @@ fn main() {
     None
   }).collect();
 
-  println!("{} dupes after full file hashing", temp.len());
+  if opt.debug {
+    println!("{} dupes after full file hashing", temp.len());
+  }
 
   let output_string = temp.par_iter().map(|item| {
     let (dupe1, dupe2) = item;
