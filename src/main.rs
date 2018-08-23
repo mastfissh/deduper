@@ -71,16 +71,16 @@ fn print_timing_info(now: Instant){
 }
 
 fn main() {
-  let opt = Opt::from_args();
+  let options = Opt::from_args();
   let now = Instant::now();
   let paths = CHashMap::new();
-  opt.paths.par_iter().for_each(|path| {
+  options.paths.par_iter().for_each(|path| {
     for entry in WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e)).filter_map(|e| e.ok()) {
       paths.insert(PathBuf::from(entry.path()), ());
     }
   });
 
-  if opt.debug {
+  if options.debug {
     println!("{} files found ", paths.len());
   }
 
@@ -98,7 +98,7 @@ fn main() {
   let paths = def_dupes;
 
 
-  if opt.debug {
+  if options.debug {
     println!("{} potential dupes after filesize cull", paths.len());
   }
 
@@ -116,7 +116,7 @@ fn main() {
   });
   let paths = def_dupes;
 
-  if opt.debug {
+  if options.debug {
     println!("{} potential dupes after first 500 bytes cull", paths.len());
   }
 
@@ -131,7 +131,7 @@ fn main() {
     None
   }).collect();
 
-  if opt.debug {
+  if options.debug {
     println!("{} dupes after full file hashing", temp.len());
   }
 
@@ -143,13 +143,13 @@ fn main() {
     start
   });
 
-  if let Some(path) = opt.output{
+  if let Some(path) = options.output{
     let mut f = File::create(path).unwrap();
     f.write(output_string.as_bytes()).unwrap();
   } else {
     println!("{}", output_string);
   }
-  if opt.timing {
+  if options.timing {
     print_timing_info(now);
   }
 

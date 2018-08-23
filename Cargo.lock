@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe"
-version = "0.3.1-alpha.0"
+version = "1.0.0"
 dependencies = [
  "blake2 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chashmap 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
