@@ -55,14 +55,14 @@ fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
 fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   let mut buffer = [0; 1000];
-  file.read(&mut buffer[..])?;
+  file.read_exact(&mut buffer[..])?;
   Ok(Blake2b::digest_reader(&mut buffer.as_ref())?)
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
     entry.file_name()
          .to_str()
-         .map(|s| s.starts_with("."))
+         .map(|s| s.starts_with('.'))
          .unwrap_or(false)
 }
 
@@ -145,7 +145,7 @@ fn main() {
 
   if let Some(path) = options.output{
     let mut f = File::create(path).unwrap();
-    f.write(output_string.as_bytes()).unwrap();
+    f.write_all(output_string.as_bytes()).unwrap();
   } else {
     println!("{}", output_string);
   }
