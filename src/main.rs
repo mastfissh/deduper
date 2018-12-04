@@ -42,17 +42,20 @@ struct Opt {
 type BoxResult<T> = Result<T,Box<Error>>;
 type HashResult = GenericArray<u8, U64>;
 
+// given a path, returns the filesize of the file at that path
 fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
   let metadata = fs::metadata(path)?;
   Ok(metadata.len())
 }
 
+// given a path, returns a hash of all the bytes of the file at that path
 fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   Ok(Blake2b::digest_reader(&mut file)?)
 }
 
-fn hash_first_file(path: PathBuf) -> BoxResult<HashResult> {
+// given a path, returns a hash of the first few bytes of the file at that path
+fn partial_hash_file(path: PathBuf) -> BoxResult<HashResult> {
   let mut file = File::open(path)?;
   let mut buffer = [0; 1000];
   file.read_exact(&mut buffer[..])?;
@@ -107,7 +110,7 @@ fn main() {
   let file_hashes = CHashMap::new();
   let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
   temp.par_iter().for_each(|current_path| {
-    if let Ok(data) = hash_first_file(PathBuf::from(&current_path)) {
+    if let Ok(data) = partial_hash_file(PathBuf::from(&current_path)) {
       if let Some(path) = file_hashes.insert(data, current_path.clone()) {
         def_dupes.insert(current_path.clone(),());
         def_dupes.insert(path.to_path_buf(),());
@@ -117,7 +120,7 @@ fn main() {
   let paths = def_dupes;
 
   if options.debug {
-    println!("{} potential dupes after first 500 bytes cull", paths.len());
+    println!("{} potential dupes after first 1000 bytes cull", paths.len());
   }
 
   let file_hashes = CHashMap::new();
