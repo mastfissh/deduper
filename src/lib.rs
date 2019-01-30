@@ -18,7 +18,7 @@ use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Default)]
 pub struct Opt {
     #[structopt(name = "paths", parse(from_os_str))]
     pub paths: Vec<PathBuf>,
