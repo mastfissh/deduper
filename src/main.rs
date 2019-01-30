@@ -2,7 +2,6 @@ extern crate blake2;
 extern crate chashmap;
 extern crate rayon;
 extern crate walkdir;
-#[macro_use]
 extern crate structopt;
 
 use blake2::digest::generic_array::typenum::U64;
@@ -34,6 +33,9 @@ struct Opt {
 
     #[structopt(short = "o", long = "output", parse(from_os_str))]
     output: Option<PathBuf>,
+
+    #[structopt(short = "m", long = "minimum")]
+    minimum: Option<u64>,
 }
 
 type BoxResult<T> = Result<T, Box<Error>>;
@@ -95,13 +97,18 @@ fn main() {
 
     let def_dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
+    let minimum = options.minimum.unwrap_or(0);
+    
     let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
     temp.par_iter().for_each(|current_path| {
-        if let Ok(data) = byte_count_file(PathBuf::from(&current_path)) {
-            if let Some(path) = file_hashes.insert(data, current_path.clone()) {
-                def_dupes.insert(current_path.clone(), ());
-                def_dupes.insert(path.to_path_buf(), ());
+        if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
+            if bytes_count > minimum {
+                if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
+                    def_dupes.insert(current_path.clone(), ());
+                    def_dupes.insert(path.to_path_buf(), ());
+                }
             }
+
         }
     });
     let paths = def_dupes;
