@@ -2,7 +2,13 @@ extern crate dupelib;
 
 use std::path::PathBuf;
 
-
+fn test_case_dir(case: &str) -> PathBuf {
+  let mut path = PathBuf::from(file!());
+  path.pop();    
+  path.push("test_cases");
+  path.push(case);
+  path
+}
 
 #[test]
 fn test_base_case() {
@@ -18,8 +24,7 @@ fn test_base_case() {
 
 #[test]
 fn test_one_file() {
-    let path: PathBuf = [ "testdirs", "one_file"].iter().collect();
-    dbg!(path.clone().as_os_str());
+    let path = test_case_dir("one_file");
     let options = dupelib::Opt{
       debug: false,
       paths: vec![path],
@@ -32,10 +37,7 @@ fn test_one_file() {
 
 #[test]
 fn test_ident_files() {
-    let mut path = PathBuf::from(file!());
-    path.pop();    
-    path.push("testdirs");
-    path.push("four_ident_files");    
+    let path = test_case_dir("four_ident_files");
     let options = dupelib::Opt{
       debug: false,
       paths: vec![path],
@@ -48,10 +50,7 @@ fn test_ident_files() {
 
 #[test]
 fn test_ident_files_minimum() {
-    let mut path = PathBuf::from(file!());
-    path.pop();    
-    path.push("testdirs");
-    path.push("four_ident_files");    
+    let path = test_case_dir("four_ident_files");  
     let options = dupelib::Opt{
       debug: false,
       paths: vec![path],
