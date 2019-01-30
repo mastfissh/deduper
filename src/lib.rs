@@ -3,7 +3,6 @@ extern crate chashmap;
 extern crate rayon;
 extern crate walkdir;
 extern crate structopt;
-
 use blake2::digest::generic_array::typenum::U64;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
@@ -13,7 +12,6 @@ use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::Read;
 use std::path::PathBuf;
 use std::time::Instant;
 use structopt::StructOpt;
@@ -53,14 +51,6 @@ fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
     Ok(Blake2b::digest_reader(&mut file)?)
 }
 
-// given a path, returns a hash of the first few bytes of the file at that path
-fn partial_hash_file(path: PathBuf) -> BoxResult<HashResult> {
-    let mut file = File::open(path)?;
-    let mut buffer = [0; 1000];
-    file.read_exact(&mut buffer[..])?;
-    Ok(Blake2b::digest_reader(&mut buffer.as_ref())?)
-}
-
 fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .file_name()
@@ -94,7 +84,7 @@ pub fn detect_dupes(options: Opt) -> usize {
         println!("{} files found ", paths.len());
     }
 
-    let def_dupes = CHashMap::new();
+    let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     let minimum = options.minimum.unwrap_or(0);
     
@@ -103,37 +93,17 @@ pub fn detect_dupes(options: Opt) -> usize {
         if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
             if bytes_count > minimum {
                 if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
-                    def_dupes.insert(current_path.clone(), ());
-                    def_dupes.insert(path.to_path_buf(), ());
+                    dupes.insert(current_path.clone(), ());
+                    dupes.insert(path.to_path_buf(), ());
                 }
             }
 
         }
     });
-    let paths = def_dupes;
+    let paths = dupes;
 
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
-    }
-
-    let def_dupes = CHashMap::new();
-    let file_hashes = CHashMap::new();
-    let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
-    temp.par_iter().for_each(|current_path| {
-        if let Ok(data) = partial_hash_file(PathBuf::from(&current_path)) {
-            if let Some(path) = file_hashes.insert(data, current_path.clone()) {
-                def_dupes.insert(current_path.clone(), ());
-                def_dupes.insert(path.to_path_buf(), ());
-            }
-        }
-    });
-    let paths = def_dupes;
-
-    if options.debug {
-        println!(
-            "{} potential dupes after first 1000 bytes cull",
-            paths.len()
-        );
     }
 
     let file_hashes = CHashMap::new();
