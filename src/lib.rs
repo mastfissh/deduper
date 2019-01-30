@@ -1,8 +1,8 @@
 extern crate blake2;
 extern crate chashmap;
 extern crate rayon;
-extern crate walkdir;
 extern crate structopt;
+extern crate walkdir;
 use blake2::digest::generic_array::typenum::U64;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
@@ -87,7 +87,7 @@ pub fn detect_dupes(options: Opt) -> usize {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     let minimum = options.minimum.unwrap_or(0);
-    
+
     let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
     temp.par_iter().for_each(|current_path| {
         if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
@@ -97,7 +97,6 @@ pub fn detect_dupes(options: Opt) -> usize {
                     dupes.insert(path.to_path_buf(), ());
                 }
             }
-
         }
     });
     let paths = dupes;
