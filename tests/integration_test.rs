@@ -35,11 +35,27 @@ fn test_ident_files() {
     let mut path = PathBuf::from(file!());
     path.pop();    
     path.push("testdirs");
-    path.push("two_ident_files");    
+    path.push("four_ident_files");    
     let options = dupelib::Opt{
       debug: false,
       paths: vec![path],
       minimum: None,
+      output: None,
+      timing: false,
+    };
+    assert_eq!(dupelib::detect_dupes(options), 2);
+}
+
+#[test]
+fn test_ident_files_minimum() {
+    let mut path = PathBuf::from(file!());
+    path.pop();    
+    path.push("testdirs");
+    path.push("four_ident_files");    
+    let options = dupelib::Opt{
+      debug: false,
+      paths: vec![path],
+      minimum: Some(2),
       output: None,
       timing: false,
     };

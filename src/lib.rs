@@ -91,7 +91,7 @@ pub fn detect_dupes(options: Opt) -> usize {
     let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
     temp.par_iter().for_each(|current_path| {
         if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
-            if bytes_count > minimum {
+            if bytes_count >= minimum {
                 if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
                     dupes.insert(current_path.clone(), ());
                     dupes.insert(path.to_path_buf(), ());

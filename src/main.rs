@@ -4,5 +4,6 @@ extern crate dupelib;
 
 fn main() {
     let options = dupelib::Opt::from_args();
-    dupelib::detect_dupes(options);
+    let dupe_count = dupelib::detect_dupes(options);
+    println!("{} dupes detected", dupe_count);
 }
