@@ -44,5 +44,5 @@ fn test_ident_files_minimum() {
         minimum: Some(2),
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options), 1);
+    assert_eq!(dupelib::detect_dupes(options), 2);
 }
