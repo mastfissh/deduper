@@ -29,3 +29,16 @@ steps:
     displayName: Cargo build
   - script: cargo test --all
     displayName: Cargo test
+  - task: GithubRelease@0
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+    inputs:
+      gitHubConnection: 'nickbabcock'
+      repositoryName: 'nickbabcock/rrinlog'
+      action: 'edit'
+      target: '$(build.sourceVersion)'
+      tagSource: 'manual'
+      tag: '$(build.my_tag)'
+      assets: '$(Build.ArtifactStagingDirectory)/rrinlog-$(build.my_tag)-$(TARGET).tar.gz'
+      title: '$(build.my_tag) - $(build.date)'
+      assetUploadMode: 'replace'
+      addChangeLog: false
