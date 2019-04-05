@@ -32,8 +32,8 @@ steps:
   - task: GithubRelease@0
     condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
     inputs:
-      gitHubConnection: 'nickbabcock'
-      repositoryName: 'nickbabcock/rrinlog'
+      gitHubConnection: 'mastfissh'
+      repositoryName: 'mastfissh/deduper'
       action: 'edit'
       target: '$(build.sourceVersion)'
       tagSource: 'manual'
