@@ -84,22 +84,26 @@ fn walk_dirs(input: Vec<PathBuf>) -> CHashMap<PathBuf, ()> {
 fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<PathBuf, ()> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
-    input.into_iter().par_bridge().for_each(|(current_path, _)| {
-        if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
-            if bytes_count >= minimum {
-                if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
-                    dupes.insert(current_path.clone(), ());
-                    dupes.insert(path.to_path_buf(), ());
+    input
+        .into_iter()
+        .par_bridge()
+        .for_each(|(current_path, _)| {
+            if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
+                if bytes_count >= minimum {
+                    if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
+                        dupes.insert(current_path.clone(), ());
+                        dupes.insert(path.to_path_buf(), ());
+                    }
                 }
             }
-        }
-    });
+        });
     return dupes;
 }
 
 fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
     let file_hashes = CHashMap::new();
-    let temp: Vec<(PathBuf, PathBuf)> = input.into_iter()
+    let temp: Vec<(PathBuf, PathBuf)> = input
+        .into_iter()
         .par_bridge()
         .filter_map(|(current_path, _)| {
             if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
