@@ -102,7 +102,7 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
 
 fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
     let file_hashes = CHashMap::new();
-    let temp: Vec<(PathBuf, PathBuf)> = input
+    return input
         .into_iter()
         .par_bridge()
         .filter_map(|(current_path, _)| {
@@ -113,8 +113,7 @@ fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
             }
             None
         })
-        .collect();
-    return temp;
+        .collect::<Vec<(_, _)>>();
 }
 
 pub fn detect_dupes(options: Opt) -> usize {
