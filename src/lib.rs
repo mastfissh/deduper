@@ -116,6 +116,19 @@ fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
         .collect::<Vec<(_, _)>>();
 }
 
+fn format_results(input: Vec<(PathBuf, PathBuf)>) -> String {
+    input
+        .par_iter()
+        .map(|item| {
+            let (dupe1, dupe2) = item;
+            format!(" {} | {} \n", dupe1.display(), dupe2.display())
+        })
+        .reduce(String::new, |mut start, item| {
+            start.push_str(&item);
+            start
+        })
+}
+
 pub fn detect_dupes(options: Opt) -> usize {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
@@ -131,22 +144,13 @@ pub fn detect_dupes(options: Opt) -> usize {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    let temp = cull_by_hash(paths);
+    let confirmed_dupes = cull_by_hash(paths);
 
     if options.debug {
-        println!("{} dupes after full file hashing", temp.len());
+        println!("{} dupes after full file hashing", confirmed_dupes.len());
     }
-
-    let output_string = temp
-        .par_iter()
-        .map(|item| {
-            let (dupe1, dupe2) = item;
-            format!(" {} | {} \n", dupe1.display(), dupe2.display())
-        })
-        .reduce(String::new, |mut start, item| {
-            start.push_str(&item);
-            start
-        });
+    let dupe_count = confirmed_dupes.len();
+    let output_string = format_results(confirmed_dupes);
 
     if let Some(path) = options.output {
         let mut f = File::create(path).unwrap();
@@ -157,5 +161,5 @@ pub fn detect_dupes(options: Opt) -> usize {
     if options.timing {
         print_timing_info(now);
     }
-    return temp.len();
+    return dupe_count;
 }
