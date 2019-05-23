@@ -116,7 +116,7 @@ fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
         .collect::<Vec<(_, _)>>();
 }
 
-fn format_results(input: Vec<(PathBuf, PathBuf)>) -> String {
+fn format_results(input: &Vec<(PathBuf, PathBuf)>) -> String {
     input
         .par_iter()
         .map(|item| {
@@ -149,8 +149,8 @@ pub fn detect_dupes(options: Opt) -> usize {
     if options.debug {
         println!("{} dupes after full file hashing", confirmed_dupes.len());
     }
-    let dupe_count = confirmed_dupes.len();
-    let output_string = format_results(confirmed_dupes);
+
+    let output_string = format_results(&confirmed_dupes);
 
     if let Some(path) = options.output {
         let mut f = File::create(path).unwrap();
@@ -161,5 +161,5 @@ pub fn detect_dupes(options: Opt) -> usize {
     if options.timing {
         print_timing_info(now);
     }
-    return dupe_count;
+    return confirmed_dupes.len();
 }
