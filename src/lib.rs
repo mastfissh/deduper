@@ -67,10 +67,9 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-pub fn detect_dupes(options: Opt) -> usize {
-    let now = Instant::now();
+fn walk_dirs(input: Vec<PathBuf>) -> CHashMap<PathBuf, ()> {
     let paths = CHashMap::new();
-    options.paths.par_iter().for_each(|path| {
+    input.par_iter().for_each(|path| {
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_entry(|e| !is_hidden(e))
@@ -79,16 +78,13 @@ pub fn detect_dupes(options: Opt) -> usize {
             paths.insert(PathBuf::from(entry.path()), ());
         }
     });
+    return paths;
+}
 
-    if options.debug {
-        println!("{} files found ", paths.len());
-    }
-
+fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<PathBuf, ()> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
-    let minimum = options.minimum.unwrap_or(0);
-
-    let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
+    let temp: Vec<PathBuf> = input.into_iter().map(|x| x.0).collect();
     temp.par_iter().for_each(|current_path| {
         if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
             if bytes_count >= minimum {
@@ -99,14 +95,12 @@ pub fn detect_dupes(options: Opt) -> usize {
             }
         }
     });
-    let paths = dupes;
+    return dupes;
+}
 
-    if options.debug {
-        println!("{} potential dupes after filesize cull", paths.len());
-    }
-
+fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
     let file_hashes = CHashMap::new();
-    let temp: Vec<PathBuf> = paths.into_iter().map(|x| x.0).collect();
+    let temp: Vec<PathBuf> = input.into_iter().map(|x| x.0).collect();
     let temp: Vec<(PathBuf, PathBuf)> = temp
         .par_iter()
         .filter_map(|current_path| {
@@ -118,6 +112,25 @@ pub fn detect_dupes(options: Opt) -> usize {
             None
         })
         .collect();
+    return temp;
+}
+
+pub fn detect_dupes(options: Opt) -> usize {
+    let now = Instant::now();
+    let paths = walk_dirs(options.paths);
+    if options.debug {
+        println!("{} files found ", paths.len());
+    }
+
+    let minimum = options.minimum.unwrap_or(0);
+
+    let paths = cull_by_filesize(paths, minimum);
+
+    if options.debug {
+        println!("{} potential dupes after filesize cull", paths.len());
+    }
+
+    let temp = cull_by_hash(paths);
 
     if options.debug {
         println!("{} dupes after full file hashing", temp.len());
