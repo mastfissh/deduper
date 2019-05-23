@@ -88,7 +88,7 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
     temp.par_iter().for_each(|current_path| {
         if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
             if bytes_count >= minimum {
-                if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
+                if let Some(path) = file_hashes.insert(bytes_count, current_path) {
                     dupes.insert(current_path.clone(), ());
                     dupes.insert(path.to_path_buf(), ());
                 }
@@ -105,7 +105,7 @@ fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
         .par_iter()
         .filter_map(|current_path| {
             if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
-                if let Some(path) = file_hashes.insert(data, current_path.clone()) {
+                if let Some(path) = file_hashes.insert(data, current_path) {
                     return Some((current_path.clone(), path.to_path_buf()));
                 }
             }
