@@ -9,7 +9,7 @@ edition = "2018"
 walkdir = "2"
 blake2 = "0.7.1"
 digest = { version = "0.7.6", features = ["std"]}
-rayon = "1.0"
+rayon = "1.1"
 chashmap = "2.2"
 structopt = "0.2"
 
