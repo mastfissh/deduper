@@ -9,7 +9,7 @@ use blake2::{Blake2b, Digest};
 use chashmap::CHashMap;
 use rayon::prelude::*;
 use std::error::Error;
-use std::fs;
+use std::{fs, io};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ pub struct Opt {
     pub minimum: Option<u64>,
 }
 
-type BoxResult<T> = Result<T, Box<Error>>;
+type BoxResult<T> = Result<T, Box<dyn Error>>;
 type HashResult = GenericArray<u8, U64>;
 
 // given a path, returns the filesize of the file at that path
@@ -48,7 +48,9 @@ fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
 // given a path, returns a hash of all the bytes of the file at that path
 fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
     let mut file = File::open(path)?;
-    Ok(Blake2b::digest_reader(&mut file)?)
+    let mut hasher = Blake2b::new();
+    io::copy(&mut file, &mut hasher)?;
+    Ok(hasher.result())
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
