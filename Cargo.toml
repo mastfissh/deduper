@@ -11,7 +11,7 @@ blake2 = "0.8.1"
 digest = { version = "0.8.1", features = ["std"]}
 rayon = "1.2"
 chashmap = "2.2"
-structopt = "0.2"
+structopt = "0.3"
 
 [lib]
 name = "dupelib"
