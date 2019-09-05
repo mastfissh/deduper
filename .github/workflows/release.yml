@@ -18,7 +18,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           curl -sSf -o rustup-init.exe https://win.rustup.rs
-          rustup-init.exe -y --default-toolchain
+          rustup-init.exe -y
           cargo build --release
       - name: build on linux
         if: matrix.os == 'ubuntu-latest'
