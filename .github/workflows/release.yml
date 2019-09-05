@@ -8,8 +8,21 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v1
-      - name: Build
-        run: cargo build --release
+      - name: Install on macos
+        if: ${{ matrix.os }} == 'macos-latest'
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          cargo build --release
+      - name: Install on windows
+        if: ${{ matrix.os }} == 'windows-latest'
+        run: |
+          curl -sSf -o rustup-init.exe https://win.rustup.rs
+          rustup-init.exe -y --default-toolchain
+          cargo build --release
+      - name: build on linux
+        if: ${{ matrix.os }} == 'ubuntu-latest'
+        run: |
+          cargo build --release
       - uses: Shopify/upload-to-release@master
         with:
           name: deduper ${{ matrix.os }}
