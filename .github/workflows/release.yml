@@ -25,8 +25,16 @@ jobs:
         run: |
           cargo build --release
       - uses: Shopify/upload-to-release@master
+        if: matrix.os != 'windows-latest'
         with:
           name: ${{ matrix.os }}
           label: ${{ matrix.os }}
           path: target/release/main
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Shopify/upload-to-release@master
+        if: matrix.os == 'windows-latest'
+        with:
+          name: ${{ matrix.os }}
+          label: ${{ matrix.os }}
+          path: target\release\main
           repo-token: ${{ secrets.GITHUB_TOKEN }}
