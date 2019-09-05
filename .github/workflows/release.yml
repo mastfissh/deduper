@@ -20,13 +20,6 @@ jobs:
           curl -sSf -o rustup-init.exe https://win.rustup.rs
           rustup-init.exe -y
           cargo build --release
-          dir
-          cd
-          cd target
-          dir
-          cd release
-          dir
-          cd
       - name: build on linux
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -43,5 +36,5 @@ jobs:
         with:
           name: ${{ matrix.os }}
           label: ${{ matrix.os }}
-          path: target\release\main
+          path: target\release\main.exe
           repo-token: ${{ secrets.GITHUB_TOKEN }}
