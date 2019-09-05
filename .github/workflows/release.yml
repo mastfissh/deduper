@@ -2,7 +2,7 @@ on: release
 name: Handle Release
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
     steps:
       - uses: actions/checkout@v1
       - name: Build
