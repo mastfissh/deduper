@@ -1,5 +1,5 @@
 on: release
-name: Build binary for ${{ matrix.os }}
+name: Build binary
 jobs:
   build:
     runs-on: ${{ matrix.os }}
