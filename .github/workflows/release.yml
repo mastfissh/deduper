@@ -1,14 +1,14 @@
 on: release
 name: Handle Release
 jobs:
-  upload:
-    name: Upload Artifacts
+  build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Upload
-      uses: skx/github-action-publish-binaries@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        args: './target/release/main'
+      - uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --release
+      - uses: Shopify/upload-to-release
+        with:
+          name: my-artifact
+          path: target/release/main
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
