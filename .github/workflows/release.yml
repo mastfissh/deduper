@@ -34,7 +34,7 @@ jobs:
       - uses: Shopify/upload-to-release@master
         if: matrix.os == 'windows-latest'
         with:
-          name: ${{ matrix.os }}
-          label: ${{ matrix.os }}
+          name: ${{ matrix.os }}.exe
+          label: ${{ matrix.os }}.exe
           path: target\release\main.exe
           repo-token: ${{ secrets.GITHUB_TOKEN }}
