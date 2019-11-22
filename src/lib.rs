@@ -9,11 +9,11 @@ use blake2::{Blake2b, Digest};
 use chashmap::CHashMap;
 use rayon::prelude::*;
 use std::error::Error;
-use std::{fs, io};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
+use std::{fs, io};
 use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -121,54 +121,56 @@ fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf)> {
         .collect::<Vec<(_, _)>>();
 }
 
-fn format_results(mut input: Vec<(PathBuf, PathBuf)>, paths: CHashMap<PathBuf, u64>) -> String {
-    input.sort_by_cached_key(|item| {
-        paths.get(&item.0);
-    });
+fn format_results(input: &Vec<(PathBuf, PathBuf)>) -> String {
     input
         .par_iter()
         .map(|item| {
             let (dupe1, dupe2) = item;
             format!(" {} | {} \n", dupe1.display(), dupe2.display())
         })
-    .reduce(String::new, |mut start, item| {
-        start.push_str(&item);
-        start
-    })
+        .reduce(String::new, |mut start, item| {
+            start.push_str(&item);
+            start
+        })
+}
+
+pub fn detect_dupes(options: Opt) -> usize {
+    let now = Instant::now();
+    let paths = walk_dirs(options.paths);
+    if options.debug {
+        println!("{} files found ", paths.len());
     }
 
-    pub fn detect_dupes(options: Opt) -> usize {
-        let now = Instant::now();
-        let paths = walk_dirs(options.paths);
-        if options.debug {
-            println!("{} files found ", paths.len());
-        }
+    let minimum = options.minimum.unwrap_or(0);
 
-        let minimum = options.minimum.unwrap_or(0);
+    let paths = cull_by_filesize(paths, minimum);
 
-        let paths = cull_by_filesize(paths, minimum);
+    if options.debug {
+        println!("{} potential dupes after filesize cull", paths.len());
+    }
 
-        if options.debug {
-            println!("{} potential dupes after filesize cull", paths.len());
-        }
+    let paths2 = paths.clone();
+    let mut confirmed_dupes = cull_by_hash(paths);
 
-        let paths2 = paths.clone();
-        let confirmed_dupes = cull_by_hash(paths);
+    if options.debug {
+        println!("{} dupes after full file hashing", confirmed_dupes.len());
+    }
+    if options.sort {
+        confirmed_dupes.sort_by_cached_key(|item| {
+            &paths2.get(&item.0);
+        });
+    }
 
-        if options.debug {
-            println!("{} dupes after full file hashing", confirmed_dupes.len());
-        }
+    let output_string = format_results(&confirmed_dupes);
 
-        let output_string = format_results(confirmed_dupes.clone(), paths2);
-
-        if let Some(path) = options.output {
-            let mut f = File::create(path).unwrap();
-            f.write_all(output_string.as_bytes()).unwrap();
-        } else {
-            println!("{}", output_string);
-        }
-        if options.timing {
-            print_timing_info(now);
-        }
-        return confirmed_dupes.len();
+    if let Some(path) = options.output {
+        let mut f = File::create(path).unwrap();
+        f.write_all(output_string.as_bytes()).unwrap();
+    } else {
+        println!("{}", output_string);
+    }
+    if options.timing {
+        print_timing_info(now);
+    }
+    return confirmed_dupes.len();
 }
