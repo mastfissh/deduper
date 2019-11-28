@@ -105,28 +105,28 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
     return dupes;
 }
 
-fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf)> {
+fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf, u64)> {
     let file_hashes = CHashMap::new();
     return input
         .into_iter()
         .par_bridge()
-        .filter_map(|(current_path, _)| {
+        .filter_map(|(current_path, bytes_count)| {
             if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
                 if let Some(path) = file_hashes.insert(data, current_path.clone()) {
-                    return Some((current_path.clone(), path.to_path_buf()));
+                    return Some((current_path.clone(), path.to_path_buf(), bytes_count));
                 }
             }
             None
         })
-        .collect::<Vec<(_, _)>>();
+        .collect::<Vec<(_, _, _)>>();
 }
 
-fn format_results(input: &Vec<(PathBuf, PathBuf)>) -> String {
+fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> String {
     input
         .par_iter()
         .map(|item| {
-            let (dupe1, dupe2) = item;
-            format!(" {} | {} \n", dupe1.display(), dupe2.display())
+            let (dupe1, dupe2, bytes_count) = item;
+            format!("{}: {} | {} \n", bytes_count, dupe1.display(), dupe2.display())
         })
         .reduce(String::new, |mut start, item| {
             start.push_str(&item);
@@ -149,15 +149,14 @@ pub fn detect_dupes(options: Opt) -> usize {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    let paths2 = paths.clone();
     let mut confirmed_dupes = cull_by_hash(paths);
 
     if options.debug {
         println!("{} dupes after full file hashing", confirmed_dupes.len());
     }
     if options.sort {
-        confirmed_dupes.sort_by_cached_key(|item| {
-            &paths2.get(&item.0);
+        confirmed_dupes.sort_by_cached_key(|confirmed_dup| {
+            confirmed_dup.2;
         });
     }
 
