@@ -9,11 +9,11 @@ use blake2::{Blake2b, Digest};
 use chashmap::CHashMap;
 use rayon::prelude::*;
 use std::error::Error;
-use std::{fs, io};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
+use std::{fs, io};
 use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -34,6 +34,9 @@ pub struct Opt {
 
     #[structopt(short = "m", long = "minimum")]
     pub minimum: Option<u64>,
+
+    #[structopt(short = "s", long = "sort")]
+    pub sort: bool,
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
@@ -83,7 +86,7 @@ fn walk_dirs(input: Vec<PathBuf>) -> CHashMap<PathBuf, ()> {
     return paths;
 }
 
-fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<PathBuf, ()> {
+fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<PathBuf, u64> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     input
@@ -93,8 +96,8 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
             if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
                 if bytes_count >= minimum {
                     if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
-                        dupes.insert(current_path.clone(), ());
-                        dupes.insert(path.to_path_buf(), ());
+                        dupes.insert(current_path.clone(), bytes_count);
+                        dupes.insert(path.to_path_buf(), bytes_count);
                     }
                 }
             }
@@ -102,28 +105,28 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
     return dupes;
 }
 
-fn cull_by_hash(input: CHashMap<PathBuf, ()>) -> Vec<(PathBuf, PathBuf)> {
+fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf, u64)> {
     let file_hashes = CHashMap::new();
     return input
         .into_iter()
         .par_bridge()
-        .filter_map(|(current_path, _)| {
+        .filter_map(|(current_path, bytes_count)| {
             if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
                 if let Some(path) = file_hashes.insert(data, current_path.clone()) {
-                    return Some((current_path.clone(), path.to_path_buf()));
+                    return Some((current_path.clone(), path.to_path_buf(), bytes_count));
                 }
             }
             None
         })
-        .collect::<Vec<(_, _)>>();
+        .collect::<Vec<(_, _, _)>>();
 }
 
-fn format_results(input: &Vec<(PathBuf, PathBuf)>) -> String {
+fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> String {
     input
         .par_iter()
         .map(|item| {
-            let (dupe1, dupe2) = item;
-            format!(" {} | {} \n", dupe1.display(), dupe2.display())
+            let (dupe1, dupe2, bytes_count) = item;
+            format!("{}: {} | {} \n", bytes_count, dupe1.display(), dupe2.display())
         })
         .reduce(String::new, |mut start, item| {
             start.push_str(&item);
@@ -146,10 +149,15 @@ pub fn detect_dupes(options: Opt) -> usize {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    let confirmed_dupes = cull_by_hash(paths);
+    let mut confirmed_dupes = cull_by_hash(paths);
 
     if options.debug {
         println!("{} dupes after full file hashing", confirmed_dupes.len());
+    }
+    if options.sort {
+        confirmed_dupes.sort_by_cached_key(|confirmed_dup| {
+            confirmed_dup.2;
+        });
     }
 
     let output_string = format_results(&confirmed_dupes);
