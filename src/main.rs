@@ -1,9 +1,41 @@
-use structopt::StructOpt;
+// use structopt::StructOpt;
 
-extern crate dupelib;
+// extern crate dupelib;
+
+// fn main() {
+//     let options = dupelib::Opt::from_args();
+//     let dupe_count = dupelib::detect_dupes(options);
+//     println!("{} dupes detected", dupe_count);
+// }
+
+extern crate gtk;
+extern crate gio;
+
+use gtk::prelude::*;
+use gio::prelude::*;
+use gtk::{Application, ApplicationWindow, Button};
+
+
 
 fn main() {
-    let options = dupelib::Opt::from_args();
-    let dupe_count = dupelib::detect_dupes(options);
-    println!("{} dupes detected", dupe_count);
+    let application = Application::new(
+        Some("com.github.gtk-rs.examples.basic"),
+        Default::default(),
+    ).expect("failed to initialize GTK application");
+
+    application.connect_activate(|app| {
+        let window = ApplicationWindow::new(app);
+        window.set_title("Deduper");
+        window.set_default_size(600, 150);
+
+        let button = Button::new_with_label("Click me");
+        button.connect_clicked(|_| {
+            println!("Clicked!");
+        });
+        window.add(&button);
+
+        window.show_all();
+    });
+
+    application.run(&[]);
 }

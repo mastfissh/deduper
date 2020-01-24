@@ -126,7 +126,12 @@ fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> String {
         .par_iter()
         .map(|item| {
             let (dupe1, dupe2, bytes_count) = item;
-            format!("{}: {} | {} \n", bytes_count, dupe1.display(), dupe2.display())
+            format!(
+                "{}: {} | {} \n",
+                bytes_count,
+                dupe1.display(),
+                dupe2.display()
+            )
         })
         .reduce(String::new, |mut start, item| {
             start.push_str(&item);
