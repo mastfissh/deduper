@@ -1,11 +1,10 @@
-// use structopt::StructOpt;
+use dupelib::Opt;
+use structopt::StructOpt;
 
-// extern crate dupelib;
+extern crate dupelib;
 
 // fn main() {
-//     let options = dupelib::Opt::from_args();
-//     let dupe_count = dupelib::detect_dupes(options);
-//     println!("{} dupes detected", dupe_count);
+
 // }
 
 extern crate gio;
@@ -67,7 +66,16 @@ fn main() {
         button.connect_clicked(|_| {
             let open_dialog = OpenDialog::new();
             let files = open_dialog.run();
-            dbg!(files);
+            let options = Opt {
+            	paths: files,
+			    timing: false,
+			    debug: false,
+			    output: None,
+			    minimum: None,
+			    sort: true,
+            };
+		    let dupe_count = dupelib::detect_dupes(options);
+		    println!("{} dupes detected", dupe_count);
         });
         window.add(&button);
 
