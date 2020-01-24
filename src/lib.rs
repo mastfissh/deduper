@@ -139,7 +139,7 @@ fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> String {
         })
 }
 
-pub fn detect_dupes(options: Opt) -> usize {
+pub fn detect_dupes(options: Opt) -> String {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
     if options.debug {
@@ -176,5 +176,5 @@ pub fn detect_dupes(options: Opt) -> usize {
     if options.timing {
         print_timing_info(now);
     }
-    return confirmed_dupes.len();
+    return output_string;
 }
