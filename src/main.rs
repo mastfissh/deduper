@@ -1,5 +1,5 @@
 use dupelib::Opt;
-use structopt::StructOpt;
+
 
 extern crate dupelib;
 
@@ -63,7 +63,13 @@ fn main() {
         window.set_default_size(600, 150);
 
         let button = Button::new_with_label("Choose folder");
+        let label = gtk::Label::new(Some(
+	        "Select cells in the grid, click Copy, then \
+	         open a second instance of this example to try \
+	         pasting the copied data.",
+	    ));
         button.connect_clicked(|_| {
+
             let open_dialog = OpenDialog::new();
             let files = open_dialog.run();
             let options = Opt {
@@ -75,9 +81,20 @@ fn main() {
 			    sort: true,
             };
 		    let dupe_count = dupelib::detect_dupes(options);
-		    println!("{} dupes detected", dupe_count);
+		    let text = format!("{} dupes detected", dupe_count);
+		    dbg!(text);
+		    // label.set_markup(&text);
         });
-        window.add(&button);
+
+        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+	    vbox.set_spacing(6);
+
+	    vbox.pack_start(&label, true, true, 0);
+	    vbox.pack_start(&button, true, true, 0);
+	    // vbox.pack_start(&button_box, true, true, 0);
+	    window.add(&vbox);
+
+        // window.add(&);
 
         window.show_all();
     });
