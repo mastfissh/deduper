@@ -33,7 +33,7 @@ fn test_ident_files() {
         paths: vec![path],
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options), "");
+    assert_eq!(dupelib::detect_dupes(options), "1: tests/test_cases/four_ident_files/d.txt | tests/test_cases/four_ident_files/b.txt \n2: tests/test_cases/four_ident_files/a.txt | tests/test_cases/four_ident_files/c.txt \n");
 }
 
 #[test]
@@ -44,5 +44,5 @@ fn test_ident_files_minimum() {
         minimum: Some(2),
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options), "");
+    assert_eq!(dupelib::detect_dupes(options), "2: tests/test_cases/four_ident_files/c.txt | tests/test_cases/four_ident_files/a.txt \n");
 }
