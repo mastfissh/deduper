@@ -1,7 +1,7 @@
 strategy:
   matrix:
     windows-nightly:
-      imageName: 'vs2017-win2016'
+      imageName: 'windows-2019'
       rustup_toolchain: nightly
     mac-nightly:
       imageName: 'macos-10.13'
