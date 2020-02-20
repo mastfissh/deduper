@@ -29,3 +29,9 @@ path = "src/lib.rs"
 name = "main"
 path = "src/main.rs"
 
+[dependencies.autovcpkg]
+version = "0.1.2019-10"
+features = ["gtk"]
+
+[build-dependencies.autovcpkg]
+version = "0.1.2019-10"

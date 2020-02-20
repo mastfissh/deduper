@@ -1,6 +1,6 @@
 use dupelib::Opt;
 
-
+use autovcpkg;
 extern crate dupelib;
 
 // fn main() {
@@ -53,6 +53,11 @@ impl Drop for OpenDialog {
 }
 
 fn main() {
+    autovcpkg::configure(&["gtk"]);
+    #[cfg(target_os = "windows")]
+    // vcpkg generate gtk adn gdk libraries with 3.0, where gtk-rs et al. expect only 3, we duplicate and rename them so rust will be able to find and link correctly
+    autovcpkg::lib_fixup(&[("gtk-3.0.lib", "gtk-3.lib"), ("gdk-3.0.lib", "gdk-3.lib")]);
+    
     let application =
         Application::new(Some("com.github.gtk-rs.examples.basic"), Default::default())
             .expect("failed to initialize GTK application");

@@ -21,9 +21,5 @@ jobs:
       if: matrix.os == 'macOS-latest'
       run: |
           brew install gtk+3
-    - name: windows deps
-      if: matrix.os == 'windows-latest'
-      run: |
-          vcpkg install gtk:x64-windows
     - name: Run tests
       run: cargo test --all
