@@ -1,40 +1,28 @@
 on: release
-name: Build binary
+name: Build release binaries
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable]
     steps:
-      - uses: actions/checkout@v1
-      - name: Install on macos
-        if: matrix.os == 'macos-latest'
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- -y
-          source $HOME/.cargo/env
-          cargo build --release
-      - name: Install on windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          curl -sSf -o rustup-init.exe https://win.rustup.rs
-          rustup-init.exe -y
-          cargo build --release
-      - name: build on linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cargo build --release
-      - uses: Shopify/upload-to-release@master
-        if: matrix.os != 'windows-latest'
-        with:
-          name: ${{ matrix.os }}
-          label: ${{ matrix.os }}
-          path: target/release/main
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: Shopify/upload-to-release@master
-        if: matrix.os == 'windows-latest'
-        with:
-          name: ${{ matrix.os }}.exe
-          label: ${{ matrix.os }}
-          path: target\release\main.exe
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: ${{ matrix.rust }}
+    - uses: actions/checkout@master
+    - uses: Shopify/upload-to-release@master
+      if: matrix.os != 'windows-latest'
+      with:
+        name: ${{ matrix.os }}
+        label: ${{ matrix.os }}
+        path: target/release/main
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Shopify/upload-to-release@master
+      if: matrix.os == 'windows-latest'
+      with:
+        name: ${{ matrix.os }}.exe
+        label: ${{ matrix.os }}
+        path: target\release\main.exe
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
