@@ -165,8 +165,8 @@ pub fn detect_dupes(options: Opt) -> Vec<String> {
     let output_strings = format_results(&confirmed_dupes);
 
     if let Some(path) = options.output {
-        let mut f = File::create(path).unwrap();
-        f.write_all(output_strings.join("")).as_bytes().unwrap();
+        // let mut f = File::create(path).unwrap();
+        // f.write_all(output_strings.join("")?).as_bytes().unwrap();
     }
     if options.timing {
         print_timing_info(now);
