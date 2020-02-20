@@ -133,6 +133,7 @@ fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> Vec<String> {
                 dupe2.display()
             )
         })
+        .collect::<Vec<_>>();
 }
 
 pub fn detect_dupes(options: Opt) -> Vec<String> {
