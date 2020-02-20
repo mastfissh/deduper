@@ -19,7 +19,7 @@ jobs:
           args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
     
   build-ubuntu:
-   runs-on: windows-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v1
       - uses: icepuma/rust-action@master
