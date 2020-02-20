@@ -1,28 +1,40 @@
-name: Test
-
-on: [push]
-
+on: push
+name: test
 jobs:
-  build-win:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v1
-      - uses: icepuma/rust-action@master
+      - name: Install on macos
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo test --all
+      - name: Install on windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          curl -sSf -o rustup-init.exe https://win.rustup.rs
+          rustup-init.exe -y
+          cargo test --all
+      - name: build on linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo test --all
+      - uses: Shopify/upload-to-release@master
+        if: matrix.os != 'windows-latest'
         with:
-          args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
-  build-mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: icepuma/rust-action@master
+          name: ${{ matrix.os }}
+          label: ${{ matrix.os }}
+          path: target/release/main
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Shopify/upload-to-release@master
+        if: matrix.os == 'windows-latest'
         with:
-          args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
-    
-  build-ubuntu:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: icepuma/rust-action@master
-        with:
-          args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
-          
+          name: ${{ matrix.os }}.exe
+          label: ${{ matrix.os }}
+          path: target\release\main.exe
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
