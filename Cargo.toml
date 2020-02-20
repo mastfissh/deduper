@@ -30,8 +30,7 @@ name = "main"
 path = "src/main.rs"
 
 [dependencies.autovcpkg]
-version = "0.1.2019-10"
-features = ["gtk"]
+version = "0.0.1"
 
 [build-dependencies.autovcpkg]
-version = "0.1.2019-10"
+version = "0.0.1"
