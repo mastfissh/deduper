@@ -85,7 +85,10 @@ fn main() {
 			    minimum: None,
 			    sort: true,
             };
-		    let text = dupelib::detect_dupes(options);
+		    let text = dupelib::detect_dupes(options).reduce(String::new, |mut start, item| {
+                start.push_str(&item);
+                start
+            });
 		    buffer.set_text(&text);
 		    label.set_buffer(Some(&buffer));
         });
