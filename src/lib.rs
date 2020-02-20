@@ -165,7 +165,7 @@ pub fn detect_dupes(options: Opt) -> Vec<String> {
 
     if let Some(path) = options.output {
         let mut f = File::create(path).unwrap();
-        f.write_all(output_strings.reduce(String::new, |mut start, item| {
+        f.write_all(output_strings.iter().reduce(String::new, |mut start, item| {
             start.push_str(&item);
             start
         }).as_bytes()).unwrap();
