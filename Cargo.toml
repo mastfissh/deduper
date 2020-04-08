@@ -12,6 +12,7 @@ digest = { version = "0.8.1", features = ["std"]}
 rayon = "1.3"
 chashmap = "2.2"
 structopt = "0.3"
+druid = { git = "https://github.com/xi-editor/druid.git", rev = "47be1da", version = "0.5" }
 
 [lib]
 name = "dupelib"

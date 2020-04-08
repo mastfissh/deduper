@@ -121,20 +121,22 @@ fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf, u64)> {
         .collect::<Vec<(_, _, _)>>();
 }
 
-fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> String {
+fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> Vec<String> {
     input
         .par_iter()
         .map(|item| {
             let (dupe1, dupe2, bytes_count) = item;
-            format!("{}: {} | {} \n", bytes_count, dupe1.display(), dupe2.display())
+            format!(
+                "{}: {} | {} \n",
+                bytes_count,
+                dupe1.display(),
+                dupe2.display()
+            )
         })
-        .reduce(String::new, |mut start, item| {
-            start.push_str(&item);
-            start
-        })
+        .collect::<Vec<_>>()
 }
 
-pub fn detect_dupes(options: Opt) -> usize {
+pub fn detect_dupes(options: Opt) -> Vec<String> {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
     if options.debug {
@@ -160,16 +162,14 @@ pub fn detect_dupes(options: Opt) -> usize {
         });
     }
 
-    let output_string = format_results(&confirmed_dupes);
+    let output_strings = format_results(&confirmed_dupes);
 
     if let Some(path) = options.output {
-        let mut f = File::create(path).unwrap();
-        f.write_all(output_string.as_bytes()).unwrap();
-    } else {
-        println!("{}", output_string);
+        // let mut f = File::create(path).unwrap();
+        // f.write_all(output_strings.join("")?).as_bytes().unwrap();
     }
     if options.timing {
         print_timing_info(now);
     }
-    return confirmed_dupes.len();
+    return output_strings;
 }
