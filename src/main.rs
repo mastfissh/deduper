@@ -1,14 +1,14 @@
-use structopt::StructOpt;
+
 
 extern crate dupelib;
 
-use std::any::Any;
+
 
 use druid::widget::{Align, Button, Flex, Label, Padding, WidgetExt};
 use druid::{AppLauncher, Widget, WindowDesc};
 
 
-use druid::kurbo::Point;
+
 
 use druid::commands;
 use druid::platform_menus;
@@ -18,11 +18,11 @@ use druid::{
 };
 
 
-use std::sync::Arc;
 
 
-use druid::kurbo::Size;
-use druid::lens::LensExt;
+
+
+
 
 #[derive(Debug, Default)]
 pub struct Delegate;
@@ -35,10 +35,10 @@ pub struct AppState {
 impl AppDelegate<AppState> for Delegate {
     fn command(
         &mut self,
-        ctx: &mut DelegateCtx,
+        _ctx: &mut DelegateCtx,
         _target: &Target,
         cmd: &Command,
-        data: &mut AppState,
+        _data: &mut AppState,
         _env: &Env,
     ) -> bool {
         dbg!(cmd);
@@ -82,7 +82,7 @@ fn ui_builder() -> impl Widget<u32> {
 
 
 fn make_menu() -> MenuDesc<u32> {
-    let mut menu = MenuDesc::empty();
+    let menu = MenuDesc::empty();
 
     menu.append(file_menu())
 }
