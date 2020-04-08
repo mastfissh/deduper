@@ -1,28 +1,14 @@
-
-
 extern crate dupelib;
-
-
 
 use druid::widget::{Align, Button, Flex, Label, Padding, WidgetExt};
 use druid::{AppLauncher, Widget, WindowDesc};
 
-
-
-
 use druid::commands;
 use druid::platform_menus;
 use druid::{
-    Command, Data, FileDialogOptions, FileSpec, LocalizedString, MenuDesc, MenuItem, SysMods,
-    AppDelegate, DelegateCtx, Env, FileInfo, Selector, Target, WindowId, Lens, Event
+    AppDelegate, Command, Data, DelegateCtx, Env, Event, FileDialogOptions, FileInfo, FileSpec,
+    Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods, Target, WindowId,
 };
-
-
-
-
-
-
-
 
 #[derive(Debug, Default)]
 pub struct Delegate;
@@ -55,35 +41,33 @@ impl AppDelegate<AppState> for Delegate {
 
     fn event(
         &mut self,
-        ctx: &mut DelegateCtx,
-        window_id: WindowId,
+        _ctx: &mut DelegateCtx,
+        _window_id: WindowId,
         event: Event,
-        data: &mut AppState,
-        env: &Env
+        _data: &mut AppState,
+        _env: &Env,
     ) -> Option<Event> {
         dbg!(event);
         None
     }
-
 }
-
 
 fn main() {
     let main_window = WindowDesc::new(ui_builder)
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
-    let data =  AppState {};
+    let data = AppState {};
     dbg!("test");
     AppLauncher::with_window(main_window)
         .use_simple_logger()
         .launch(data)
         .expect("launch failed");
+    dbg!("test2");
 }
 
 fn ui_builder() -> impl Widget<AppState> {
     Flex::column()
 }
-
 
 fn make_menu() -> MenuDesc<AppState> {
     let menu = MenuDesc::empty();
@@ -99,7 +83,9 @@ fn file_menu() -> MenuDesc<AppState> {
                 LocalizedString::new("common-menu-file-open"),
                 Command::new(
                     commands::SHOW_OPEN_PANEL,
-                    FileDialogOptions::new().select_directories().multi_selection(),
+                    FileDialogOptions::new()
+                        .select_directories()
+                        .multi_selection(),
                 ),
             )
             .hotkey(SysMods::Cmd, "o"),
