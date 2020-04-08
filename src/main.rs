@@ -3,7 +3,7 @@ extern crate dupelib;
 use druid::commands;
 use druid::platform_menus;
 use druid::widget::prelude::*;
-use druid::widget::{Align, Button, Flex, Label, Padding, WidgetExt};
+
 use druid::{
     AppDelegate, BoxConstraints, Command, Data, DelegateCtx, Env, Event, FileDialogOptions,
     FileInfo, FileSpec, LayoutCtx, Lens, LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx,
@@ -20,13 +20,13 @@ pub struct AppState {
 }
 
 impl Widget<AppState> for AppState {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut AppState, _env: &Env) {
+    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, _data: &mut AppState, _env: &Env) {
         dbg!(event);
     }
 
     fn lifecycle(
         &mut self,
-        ctx: &mut LifeCycleCtx,
+        _ctx: &mut LifeCycleCtx,
         event: &LifeCycle,
         _data: &AppState,
         _env: &Env,
@@ -48,7 +48,7 @@ impl Widget<AppState> for AppState {
         bc.constrain((900.0, 900.0))
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &AppState, _env: &Env) {}
+    fn paint(&mut self, _ctx: &mut PaintCtx, _data: &AppState, _env: &Env) {}
 }
 
 fn main() {
