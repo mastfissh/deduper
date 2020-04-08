@@ -5,9 +5,9 @@ use druid::platform_menus;
 use druid::widget::prelude::*;
 
 use druid::{
-    AppDelegate, BoxConstraints, Command, Data, DelegateCtx, Env, Event, FileDialogOptions,
-    FileInfo, FileSpec, LayoutCtx, Lens, LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx,
-    Selector, Size, SysMods, Target, WindowId,
+    BoxConstraints, Command, Data, Env, Event, FileDialogOptions,
+    LayoutCtx, Lens, LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx,
+    Size, SysMods,
 };
 use druid::{AppLauncher, Widget, WindowDesc};
 
