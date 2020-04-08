@@ -10,7 +10,7 @@ use chashmap::CHashMap;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
-use std::io::prelude::*;
+
 use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, io};
@@ -164,7 +164,7 @@ pub fn detect_dupes(options: Opt) -> Vec<String> {
 
     let output_strings = format_results(&confirmed_dupes);
 
-    if let Some(path) = options.output {
+    if let Some(_path) = options.output {
         // let mut f = File::create(path).unwrap();
         // f.write_all(output_strings.join("")?).as_bytes().unwrap();
     }

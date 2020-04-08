@@ -14,23 +14,23 @@ use druid::commands;
 use druid::platform_menus;
 use druid::{
     Command, Data, FileDialogOptions, FileSpec, LocalizedString, MenuDesc, MenuItem, SysMods,
+    AppDelegate, DelegateCtx, Env, FileInfo, Selector, Target, WindowId, Lens
 };
 
 
 use std::sync::Arc;
 
-use druid::{
-    AppDelegate, Command, DelegateCtx, Env, FileInfo, LocalizedString, Selector, Target, Widget,
-    WindowDesc, WindowId,
-};
 
 use druid::kurbo::Size;
 use druid::lens::LensExt;
-use druid::widget::WidgetExt;
-use norad::{GlyphName, Ufo};
 
 #[derive(Debug, Default)]
 pub struct Delegate;
+
+#[derive(Clone, Data, Default, Lens)]
+pub struct AppState {
+    // pub workspace: Workspace,
+}
 
 impl AppDelegate<AppState> for Delegate {
     fn command(
@@ -41,6 +41,7 @@ impl AppDelegate<AppState> for Delegate {
         data: &mut AppState,
         _env: &Env,
     ) -> bool {
+        dbg!(cmd);
         match cmd.selector {
             druid::commands::OPEN_FILE => {
                 let info = cmd.get_object::<FileInfo>().expect("api violation");
@@ -60,6 +61,7 @@ fn main() {
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
     let data = 0_u32;
+    dbg!("test");
     AppLauncher::with_window(main_window)
         .use_simple_logger()
         .launch(data)
