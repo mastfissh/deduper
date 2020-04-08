@@ -1,72 +1,65 @@
 extern crate dupelib;
 
-use druid::widget::{Align, Button, Flex, Label, Padding, WidgetExt};
-use druid::{AppLauncher, Widget, WindowDesc};
-
 use druid::commands;
 use druid::platform_menus;
+use druid::widget::prelude::*;
+use druid::widget::{Align, Button, Flex, Label, Padding, WidgetExt};
 use druid::{
-    AppDelegate, Command, Data, DelegateCtx, Env, Event, FileDialogOptions, FileInfo, FileSpec,
-    Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods, Target, WindowId,
+    AppDelegate, BoxConstraints, Command, Data, DelegateCtx, Env, Event, FileDialogOptions,
+    FileInfo, FileSpec, LayoutCtx, Lens, LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx,
+    Selector, Size, SysMods, Target, WindowId,
 };
+use druid::{AppLauncher, Widget, WindowDesc};
 
 #[derive(Debug, Default)]
 pub struct Delegate;
 
-#[derive(Clone, Data, Default, Lens)]
+#[derive(Clone, Data, Default, Lens, Copy)]
 pub struct AppState {
     // pub workspace: Workspace,
 }
 
-impl AppDelegate<AppState> for Delegate {
-    fn command(
-        &mut self,
-        _ctx: &mut DelegateCtx,
-        _target: &Target,
-        cmd: &Command,
-        _data: &mut AppState,
-        _env: &Env,
-    ) -> bool {
-        dbg!(cmd);
-        match cmd.selector {
-            druid::commands::OPEN_FILE => {
-                let info = cmd.get_object::<FileInfo>().expect("api violation");
-                dbg!(info);
-                false
-            }
-
-            _ => true,
-        }
-    }
-
-    fn event(
-        &mut self,
-        _ctx: &mut DelegateCtx,
-        _window_id: WindowId,
-        event: Event,
-        _data: &mut AppState,
-        _env: &Env,
-    ) -> Option<Event> {
+impl Widget<AppState> for AppState {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut AppState, _env: &Env) {
         dbg!(event);
-        None
     }
+
+    fn lifecycle(
+        &mut self,
+        ctx: &mut LifeCycleCtx,
+        event: &LifeCycle,
+        _data: &AppState,
+        _env: &Env,
+    ) {
+        dbg!(event);
+    }
+
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &AppState, _data: &AppState, _env: &Env) {
+        dbg!("t");
+    }
+
+    fn layout(
+        &mut self,
+        _layout_ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &AppState,
+        _env: &Env,
+    ) -> Size {
+        bc.constrain((900.0, 900.0))
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &AppState, _env: &Env) {}
 }
 
 fn main() {
-    let main_window = WindowDesc::new(ui_builder)
+    let main_window = WindowDesc::new(|| AppState {})
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
-    let data = AppState {};
-    dbg!("test");
+
     AppLauncher::with_window(main_window)
         .use_simple_logger()
-        .launch(data)
+        .launch(AppState {})
         .expect("launch failed");
-    dbg!("test2");
-}
-
-fn ui_builder() -> impl Widget<AppState> {
-    Flex::column()
 }
 
 fn make_menu() -> MenuDesc<AppState> {
