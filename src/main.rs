@@ -14,7 +14,7 @@ use druid::commands;
 use druid::platform_menus;
 use druid::{
     Command, Data, FileDialogOptions, FileSpec, LocalizedString, MenuDesc, MenuItem, SysMods,
-    AppDelegate, DelegateCtx, Env, FileInfo, Selector, Target, WindowId, Lens
+    AppDelegate, DelegateCtx, Env, FileInfo, Selector, Target, WindowId, Lens, Event
 };
 
 
@@ -53,6 +53,18 @@ impl AppDelegate<AppState> for Delegate {
         }
     }
 
+    fn event(
+        &mut self,
+        ctx: &mut DelegateCtx,
+        window_id: WindowId,
+        event: Event,
+        data: &mut AppState,
+        env: &Env
+    ) -> Option<Event> {
+        dbg!(event);
+        None
+    }
+
 }
 
 
@@ -60,7 +72,7 @@ fn main() {
     let main_window = WindowDesc::new(ui_builder)
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
-    let data = 0_u32;
+    let data =  AppState {};
     dbg!("test");
     AppLauncher::with_window(main_window)
         .use_simple_logger()
@@ -68,26 +80,18 @@ fn main() {
         .expect("launch failed");
 }
 
-fn ui_builder() -> impl Widget<u32> {
-    // The label text will be computed dynamically based on the current locale and count
-    let text =
-        LocalizedString::new("hello-counter").with_arg("count", |data: &u32, _env| (*data).into());
-    let label = Label::new(text)
-        .padding(5.0)
-        .center();
-
+fn ui_builder() -> impl Widget<AppState> {
     Flex::column()
-    .with_child(label)
 }
 
 
-fn make_menu() -> MenuDesc<u32> {
+fn make_menu() -> MenuDesc<AppState> {
     let menu = MenuDesc::empty();
 
     menu.append(file_menu())
 }
 
-fn file_menu() -> MenuDesc<u32> {
+fn file_menu() -> MenuDesc<AppState> {
     MenuDesc::new(LocalizedString::new("common-menu-file-menu"))
         .append(platform_menus::mac::file::new_file().disabled())
         .append(
