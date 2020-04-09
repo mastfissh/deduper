@@ -39,6 +39,19 @@ pub struct Opt {
     pub sort: bool,
 }
 
+impl Opt {
+    pub fn from_paths(paths: Vec<PathBuf>) -> Opt {
+        Opt {
+            paths,
+            timing: false,
+            debug: false,
+            output: None,
+            minimum: None,
+            sort: false,
+        }
+    }
+}
+
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 type HashResult = GenericArray<u8, U64>;
 

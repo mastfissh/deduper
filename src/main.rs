@@ -1,7 +1,12 @@
 extern crate dupelib;
-
 use druid::commands;
 use druid::platform_menus;
+use dupelib::detect_dupes;
+use dupelib::Opt;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::thread;
 
 use druid::AppDelegate;
 use druid::DelegateCtx;
@@ -9,7 +14,8 @@ use druid::Target;
 
 use druid::{AppLauncher, Widget, WindowDesc};
 use druid::{
-    Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem, SysMods,
+    Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem,
+    SysMods,
 };
 #[derive(Debug, Default)]
 pub struct Delegate;
@@ -18,11 +24,32 @@ use druid::widget::{Button, Flex, Label};
 use druid::WidgetExt;
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use druid::widget::{List, Scroll};
+use druid::{Color, UnitPoint};
 
 #[derive(Clone, Data, Default, Lens)]
 pub struct AppState {
-    pub paths: Arc<Mutex<Vec<PathBuf>>>,
+    pub paths: Arc<Vec<DisplayablePath>>,
+    pub dupes: Arc<Vec<String>>,
+}
+
+#[derive(Clone, Data)]
+pub struct DisplayablePath {
+    #[data(same_fn = "PartialEq::eq")]
+    pathbuf: PathBuf,
+}
+
+impl Display for DisplayablePath {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "{}", self.pathbuf.as_path().to_string_lossy())
+    }
 }
 
 impl AppDelegate<AppState> for Delegate {
@@ -35,30 +62,60 @@ impl AppDelegate<AppState> for Delegate {
         _env: &Env,
     ) -> bool {
         match cmd.selector {
-                druid::commands::OPEN_FILE => {
-                    let info = cmd.get_object::<FileInfo>().expect("api violation");
-                    let pathbuf = info.path().clone().to_path_buf();
-                    data.paths.try_lock().unwrap().push(pathbuf);
-                    dbg!(&data.paths);
-                    false
-                }
-                _ => true
+            druid::commands::OPEN_FILE => {
+                let info = cmd.get_object::<FileInfo>().expect("api violation");
+                let pathbuf = info.path().clone().to_path_buf();
+                Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
+                true
             }
+            _ => true,
+        }
     }
 }
 
-
 fn ui_builder() -> impl Widget<AppState> {
-    // The label text will be computed dynamically based on the current locale and count
-    let text = LocalizedString::new("hello-counter");
-    let label = Label::new(text).padding(5.0).center();
-    let button = Button::new("increment")
-        .on_click(|_ctx, _data, _env| {
-            dbg!("clicked");
+    let button = Button::new("Check")
+        .on_click(|ctx, data: &mut AppState, _env| {
+            let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
+            let options = Opt::from_paths(paths);
+            
+            thread::spawn(|| {
+                let dupes = detect_dupes(options);
+                // let cmd = Command::new();
+                // ctx.submit_command(druid::commands::HIDE_APPLICATION, None);
+                dbg!(dupes)
+            });
         })
         .padding(5.0);
 
-    Flex::column().with_child(label).with_child(button)
+    Flex::column()
+        .with_flex_child(
+            Scroll::new(List::new(|| {
+                Label::new(|item: &DisplayablePath, _env: &_| format!("List item #{}", item))
+                    .align_vertical(UnitPoint::LEFT)
+                    .padding(10.0)
+                    .expand()
+                    .height(50.0)
+                    .background(Color::rgb(0.5, 0.5, 0.5))
+            }))
+            .vertical()
+            .lens(AppState::paths),
+            1.0,
+        )
+        .with_child(button)
+        .with_flex_child(
+            Scroll::new(List::new(|| {
+                Label::new(|item: &String, _env: &_| format!("List item #{}", item))
+                    .align_vertical(UnitPoint::LEFT)
+                    .padding(10.0)
+                    .expand()
+                    .height(50.0)
+                    .background(Color::rgb(0.5, 0.5, 0.5))
+            }))
+            .vertical()
+            .lens(AppState::dupes),
+            1.0,
+        )
 }
 
 fn main() {
@@ -87,9 +144,7 @@ fn file_menu() -> MenuDesc<AppState> {
                 LocalizedString::new("common-menu-file-open"),
                 Command::new(
                     commands::SHOW_OPEN_PANEL,
-                    FileDialogOptions::new()
-                        .select_directories()
-                        .multi_selection(),
+                    FileDialogOptions::new().select_directories(),
                 ),
             )
             .hotkey(SysMods::Cmd, "o"),
