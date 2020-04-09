@@ -2,13 +2,17 @@ extern crate dupelib;
 
 use druid::commands;
 use druid::platform_menus;
-use druid::widget::prelude::*;
+
+use druid::AppDelegate;
+use druid::DelegateCtx;
+use druid::Target;
 
 use druid::{AppLauncher, Widget, WindowDesc};
 use druid::{
-    BoxConstraints, Command, Data, Env, Event, FileDialogOptions, FileInfo, LayoutCtx, Lens,
-    LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx, Size, SysMods,
+    Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem, SysMods,
 };
+#[derive(Debug, Default)]
+pub struct Delegate;
 
 use druid::widget::{Button, Flex, Label};
 use druid::WidgetExt;
@@ -21,55 +25,35 @@ pub struct AppState {
     pub paths: Arc<Mutex<Vec<PathBuf>>>,
 }
 
-impl Widget<AppState> for AppState {
-    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, data: &mut AppState, _env: &Env) {
-        match event {
-            Event::Command(cmd) => match cmd.selector {
+impl AppDelegate<AppState> for Delegate {
+    fn command(
+        &mut self,
+        _ctx: &mut DelegateCtx,
+        _target: &Target,
+        cmd: &Command,
+        data: &mut AppState,
+        _env: &Env,
+    ) -> bool {
+        match cmd.selector {
                 druid::commands::OPEN_FILE => {
                     let info = cmd.get_object::<FileInfo>().expect("api violation");
                     let pathbuf = info.path().clone().to_path_buf();
                     data.paths.try_lock().unwrap().push(pathbuf);
                     dbg!(&data.paths);
+                    false
                 }
-                _ => {}
-            },
-            _ => {}
-        }
+                _ => true
+            }
     }
-
-    fn lifecycle(
-        &mut self,
-        _ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        _data: &AppState,
-        _env: &Env,
-    ) {
-        dbg!(event);
-    }
-
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &AppState, _data: &AppState, _env: &Env) {
-        dbg!("t");
-    }
-
-    fn layout(
-        &mut self,
-        _layout_ctx: &mut LayoutCtx,
-        bc: &BoxConstraints,
-        _data: &AppState,
-        _env: &Env,
-    ) -> Size {
-        bc.constrain((900.0, 900.0))
-    }
-
-    fn paint(&mut self, _ctx: &mut PaintCtx, _data: &AppState, _env: &Env) {}
 }
+
 
 fn ui_builder() -> impl Widget<AppState> {
     // The label text will be computed dynamically based on the current locale and count
     let text = LocalizedString::new("hello-counter");
     let label = Label::new(text).padding(5.0).center();
     let button = Button::new("increment")
-        .on_click(|_ctx, data, _env| {
+        .on_click(|_ctx, _data, _env| {
             dbg!("clicked");
         })
         .padding(5.0);
@@ -78,11 +62,12 @@ fn ui_builder() -> impl Widget<AppState> {
 }
 
 fn main() {
-    let main_window = WindowDesc::new(|| AppState::default())
+    let main_window = WindowDesc::new(|| ui_builder())
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
 
     AppLauncher::with_window(main_window)
+        .delegate(Delegate::default())
         .use_simple_logger()
         .launch(AppState::default())
         .expect("launch failed");
