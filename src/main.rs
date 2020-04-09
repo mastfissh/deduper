@@ -4,24 +4,34 @@ use druid::commands;
 use druid::platform_menus;
 use druid::widget::prelude::*;
 
-use druid::{
-    BoxConstraints, Command, Data, Env, Event, FileDialogOptions,
-    LayoutCtx, Lens, LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx,
-    Size, SysMods,
-};
 use druid::{AppLauncher, Widget, WindowDesc};
+use druid::{
+    BoxConstraints, Command, Data, Env, Event, FileDialogOptions, LayoutCtx, Lens, LifeCycle,
+    LocalizedString, MenuDesc, MenuItem, PaintCtx, Size, SysMods, FileInfo
+};
 
-#[derive(Debug, Default)]
-pub struct Delegate;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
-#[derive(Clone, Data, Default, Lens, Copy)]
+#[derive(Clone, Data, Default, Lens)]
 pub struct AppState {
-    // pub workspace: Workspace,
+    pub paths: Arc<Mutex<Vec<PathBuf>>>
 }
 
 impl Widget<AppState> for AppState {
-    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, _data: &mut AppState, _env: &Env) {
-        dbg!(event);
+    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, data: &mut AppState, _env: &Env) {
+        match event {
+            Event::Command(cmd) => match cmd.selector {
+                druid::commands::OPEN_FILE => {
+                    let info = cmd.get_object::<FileInfo>().expect("api violation");
+                    let pathbuf = info.path().clone().to_path_buf();
+                    data.paths.try_lock().unwrap().push(pathbuf);
+                    // dbg!(&data.paths);
+                }
+                _ => {}
+            },
+            _ => {}
+        }
     }
 
     fn lifecycle(
@@ -52,13 +62,13 @@ impl Widget<AppState> for AppState {
 }
 
 fn main() {
-    let main_window = WindowDesc::new(|| AppState {})
+    let main_window = WindowDesc::new(|| AppState::default())
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
 
     AppLauncher::with_window(main_window)
         .use_simple_logger()
-        .launch(AppState {})
+        .launch(AppState::default())
         .expect("launch failed");
 }
 
