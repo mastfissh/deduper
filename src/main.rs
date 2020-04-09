@@ -6,16 +6,19 @@ use druid::widget::prelude::*;
 
 use druid::{AppLauncher, Widget, WindowDesc};
 use druid::{
-    BoxConstraints, Command, Data, Env, Event, FileDialogOptions, LayoutCtx, Lens, LifeCycle,
-    LocalizedString, MenuDesc, MenuItem, PaintCtx, Size, SysMods, FileInfo
+    BoxConstraints, Command, Data, Env, Event, FileDialogOptions, FileInfo, LayoutCtx, Lens,
+    LifeCycle, LocalizedString, MenuDesc, MenuItem, PaintCtx, Size, SysMods,
 };
+
+use druid::widget::{Button, Flex, Label};
+use druid::WidgetExt;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Data, Default, Lens)]
 pub struct AppState {
-    pub paths: Arc<Mutex<Vec<PathBuf>>>
+    pub paths: Arc<Mutex<Vec<PathBuf>>>,
 }
 
 impl Widget<AppState> for AppState {
@@ -26,7 +29,7 @@ impl Widget<AppState> for AppState {
                     let info = cmd.get_object::<FileInfo>().expect("api violation");
                     let pathbuf = info.path().clone().to_path_buf();
                     data.paths.try_lock().unwrap().push(pathbuf);
-                    // dbg!(&data.paths);
+                    dbg!(&data.paths);
                 }
                 _ => {}
             },
@@ -59,6 +62,19 @@ impl Widget<AppState> for AppState {
     }
 
     fn paint(&mut self, _ctx: &mut PaintCtx, _data: &AppState, _env: &Env) {}
+}
+
+fn ui_builder() -> impl Widget<AppState> {
+    // The label text will be computed dynamically based on the current locale and count
+    let text = LocalizedString::new("hello-counter");
+    let label = Label::new(text).padding(5.0).center();
+    let button = Button::new("increment")
+        .on_click(|_ctx, data, _env| {
+            dbg!("clicked");
+        })
+        .padding(5.0);
+
+    Flex::column().with_child(label).with_child(button)
 }
 
 fn main() {
