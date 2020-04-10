@@ -1,12 +1,17 @@
 extern crate dupelib;
+
 use druid::commands;
 use druid::platform_menus;
+use druid::ExtEventSink;
+use druid::Selector;
 use dupelib::detect_dupes;
 use dupelib::Opt;
 use std::fmt;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::thread;
+
 
 use druid::AppDelegate;
 use druid::DelegateCtx;
@@ -17,8 +22,10 @@ use druid::{
     Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem,
     SysMods,
 };
-#[derive(Debug, Default)]
-pub struct Delegate;
+#[derive(Default)]
+pub struct Delegate {
+    eventsink: Option<ExtEventSink>,
+}
 
 use druid::widget::{Button, Flex, Label};
 use druid::WidgetExt;
@@ -29,7 +36,7 @@ use std::sync::Arc;
 use druid::widget::{List, Scroll};
 use druid::{Color, UnitPoint};
 
-#[derive(Clone, Data, Default, Lens)]
+#[derive(Clone, Data, Default, Lens, Debug)]
 pub struct AppState {
     pub paths: Arc<Vec<DisplayablePath>>,
     pub dupes: Arc<Vec<String>>,
@@ -41,15 +48,27 @@ pub struct DisplayablePath {
     pathbuf: PathBuf,
 }
 
+pub const START_DUPE: Selector = Selector::new("start_dupe");
+
+pub const FINISH_DUPE: Selector = Selector::new("finish_dupe");
+
 impl Display for DisplayablePath {
-    // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // Write strictly the first element into the supplied output
-        // stream: `f`. Returns `fmt::Result` which indicates whether the
-        // operation succeeded or failed. Note that `write!` uses syntax which
-        // is very similar to `println!`.
         write!(f, "{}", self.pathbuf.as_path().to_string_lossy())
     }
+}
+
+impl Debug for DisplayablePath {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.pathbuf.as_path().to_string_lossy())
+    }
+}
+
+fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
+    thread::spawn(move || {
+        let dupes = detect_dupes(options);
+        sink.submit_command(FINISH_DUPE, dupes, None).expect("command failed to submit");
+    });
 }
 
 impl AppDelegate<AppState> for Delegate {
@@ -68,6 +87,18 @@ impl AppDelegate<AppState> for Delegate {
                 Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
                 true
             }
+            START_DUPE => {
+                let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
+                let options = Opt::from_paths(paths);
+                run_dupe_detect(self.eventsink.as_ref().unwrap().clone(), options);
+                true
+            }
+            FINISH_DUPE => {
+                let dupes = cmd.get_object::<Vec<String>>().expect("api violation");
+                data.dupes = Arc::new(dupes.to_vec());
+                // dbg!(dupes);
+                true
+            }
             _ => true,
         }
     }
@@ -75,16 +106,9 @@ impl AppDelegate<AppState> for Delegate {
 
 fn ui_builder() -> impl Widget<AppState> {
     let button = Button::new("Check")
-        .on_click(|ctx, data: &mut AppState, _env| {
-            let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
-            let options = Opt::from_paths(paths);
-            
-            thread::spawn(|| {
-                let dupes = detect_dupes(options);
-                // let cmd = Command::new();
-                // ctx.submit_command(druid::commands::HIDE_APPLICATION, None);
-                dbg!(dupes)
-            });
+        .on_click(|ctx, _data: &mut AppState, _env| {
+            let cmd = Command::new(START_DUPE, 0);
+            ctx.submit_command(cmd, None);
         })
         .padding(5.0);
 
@@ -117,22 +141,22 @@ fn ui_builder() -> impl Widget<AppState> {
             1.0,
         )
 }
-
 fn main() {
+    let mut delegate = Delegate::default();
     let main_window = WindowDesc::new(|| ui_builder())
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
+    let app = AppLauncher::with_window(main_window);
+    delegate.eventsink = Some(app.get_external_handle());
 
-    AppLauncher::with_window(main_window)
-        .delegate(Delegate::default())
+    app.delegate(delegate)
         .use_simple_logger()
-        .launch(AppState::default())
+        .launch( AppState::default())
         .expect("launch failed");
 }
 
 fn make_menu() -> MenuDesc<AppState> {
     let menu = MenuDesc::empty();
-
     menu.append(file_menu())
 }
 
