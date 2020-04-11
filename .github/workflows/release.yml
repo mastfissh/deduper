@@ -12,6 +12,13 @@ jobs:
       with:
         rust-version: ${{ matrix.rust }}
     - uses: actions/checkout@master
+    - if: matrix.os == 'ubuntu-latest'
+      run: |
+          sudo apt update
+          sudo apt install libx11-dev libgtk-3-dev
+    - if: matrix.os == 'macOS-latest'
+      run: |
+          brew install cairo
     - name: Build
       run: cargo build --release
     - uses: Shopify/upload-to-release@master
