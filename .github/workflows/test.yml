@@ -12,7 +12,7 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         rust-version: ${{ matrix.rust }}
-    - if: matrix.os = 'ubuntu-latest'
+    - if: matrix.os == 'ubuntu-latest'
       run: |
           sudo apt update
           sudo apt install libx11-dev libgtk-3-dev
