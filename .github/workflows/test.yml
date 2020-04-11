@@ -16,6 +16,9 @@ jobs:
       run: |
           sudo apt update
           sudo apt install libx11-dev libgtk-3-dev
+    - if: matrix.os == 'macOS-latest'
+      run: |
+          brew install cairo
     - uses: actions/checkout@master
     - name: Run tests
       run: cargo test --all
