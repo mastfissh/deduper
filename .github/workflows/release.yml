@@ -12,6 +12,8 @@ jobs:
       with:
         rust-version: ${{ matrix.rust }}
     - uses: actions/checkout@master
+    - name: Build
+      run: cargo build --release
     - uses: Shopify/upload-to-release@master
       if: matrix.os != 'windows-latest'
       with:
