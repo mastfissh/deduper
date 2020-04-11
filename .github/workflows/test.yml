@@ -5,13 +5,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
         rust: [stable]
 
     steps:
     - uses: hecrj/setup-rust-action@v1
       with:
         rust-version: ${{ matrix.rust }}
+    - if: matrix.os = 'ubuntu-latest'
+      run: |
+          sudo apt update
+          sudo apt install libx11-dev libgtk-3-dev
     - uses: actions/checkout@master
     - name: Run tests
       run: cargo test --all
