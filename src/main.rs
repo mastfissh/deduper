@@ -14,7 +14,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::thread;
 
-
 use druid::AppDelegate;
 use druid::DelegateCtx;
 use druid::Target;
@@ -24,12 +23,12 @@ use druid::{
     Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem,
     SysMods,
 };
-#[derive(Default)]
+
 pub struct Delegate {
-    eventsink: Option<ExtEventSink>,
+    eventsink: ExtEventSink,
 }
 
-use druid::widget::{Button, Flex, Label};
+use druid::widget::{Button, Either, Flex, Label};
 use druid::WidgetExt;
 
 use std::path::PathBuf;
@@ -42,6 +41,7 @@ use druid::{Color, UnitPoint};
 pub struct AppState {
     pub paths: Arc<Vec<DisplayablePath>>,
     pub dupes: Arc<Vec<String>>,
+    pub processing: bool,
 }
 
 #[derive(Clone, Data)]
@@ -69,7 +69,8 @@ impl Debug for DisplayablePath {
 fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
     thread::spawn(move || {
         let dupes = detect_dupes(options);
-        sink.submit_command(FINISH_DUPE, dupes, None).expect("command failed to submit");
+        sink.submit_command(FINISH_DUPE, dupes, None)
+            .expect("command failed to submit");
     });
 }
 
@@ -90,15 +91,17 @@ impl AppDelegate<AppState> for Delegate {
                 true
             }
             START_DUPE => {
+                data.processing = true;
                 let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
                 let options = Opt::from_paths(paths);
-                run_dupe_detect(self.eventsink.as_ref().unwrap().clone(), options);
+                run_dupe_detect(self.eventsink.clone(), options);
                 true
             }
             FINISH_DUPE => {
+                data.processing = false;
                 let dupes = cmd.get_object::<Vec<String>>().expect("api violation");
                 data.dupes = Arc::new(dupes.to_vec());
-                // dbg!(dupes);
+
                 true
             }
             _ => true,
@@ -114,10 +117,24 @@ fn ui_builder() -> impl Widget<AppState> {
         })
         .padding(5.0);
 
+    let button_placeholder = Label::new(LocalizedString::new("Processing..."))
+        .padding(5.0)
+        .center();
+
+    let either = Either::new(|data, _env| data.processing, button_placeholder, button);
+
+
+    let paths_to_check = Label::new(LocalizedString::new("Paths to check"))
+        .padding(5.0);
+
+    let discovered_dupes = Label::new(LocalizedString::new("Discovered Dupes"))
+        .padding(5.0);
+
     Flex::column()
+        .with_child(paths_to_check)
         .with_flex_child(
             Scroll::new(List::new(|| {
-                Label::new(|item: &DisplayablePath, _env: &_| format!("List item #{}", item))
+                Label::new(|item: &DisplayablePath, _env: &_| format!("#{}", item))
                     .align_vertical(UnitPoint::LEFT)
                     .padding(10.0)
                     .expand()
@@ -128,10 +145,11 @@ fn ui_builder() -> impl Widget<AppState> {
             .lens(AppState::paths),
             1.0,
         )
-        .with_child(button)
+        .with_child(either)
+        .with_child(discovered_dupes)
         .with_flex_child(
             Scroll::new(List::new(|| {
-                Label::new(|item: &String, _env: &_| format!("List item #{}", item))
+                Label::new(|item: &String, _env: &_| format!("#{}", item))
                     .align_vertical(UnitPoint::LEFT)
                     .padding(10.0)
                     .expand()
@@ -144,16 +162,17 @@ fn ui_builder() -> impl Widget<AppState> {
         )
 }
 fn main() {
-    let mut delegate = Delegate::default();
     let main_window = WindowDesc::new(|| ui_builder())
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu());
     let app = AppLauncher::with_window(main_window);
-    delegate.eventsink = Some(app.get_external_handle());
 
+    let delegate = Delegate {
+        eventsink: app.get_external_handle(),
+    };
     app.delegate(delegate)
         .use_simple_logger()
-        .launch( AppState::default())
+        .launch(AppState::default())
         .expect("launch failed");
 }
 
