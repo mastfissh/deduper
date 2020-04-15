@@ -92,6 +92,7 @@ impl AppDelegate<AppState> for Delegate {
             }
             START_DUPE => {
                 data.processing = true;
+                data.dupes = Arc::new(Vec::<String>::new());
                 let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
                 let options = Opt::from_paths(paths);
                 run_dupe_detect(self.eventsink.clone(), options);
