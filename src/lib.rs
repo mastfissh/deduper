@@ -66,7 +66,7 @@ fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
     let mut file = File::open(path)?;
     let mut hasher = Blake2b::new();
     io::copy(&mut file, &mut hasher)?;
-    Ok(hasher.result())
+    Ok(hasher.finalize())
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
