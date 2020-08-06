@@ -74,9 +74,9 @@ impl Debug for DisplayablePath {
 
 fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
     let sinkin = sink.clone();
-    let (s, r) = unbounded();
+    let (sender, receiver) = unbounded();
     thread::spawn(move || {
-        let dupes = detect_dupes(options, s);
+        let dupes = detect_dupes(options, Some(sender));
         sinkin
             .submit_command(FINISH_DUPE, dupes, None)
             .expect("command failed to submit");
@@ -86,7 +86,7 @@ fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
         let mut cont = true;
         while cont {
             cont = false;
-            let data = r.recv();
+            let data = receiver.recv();
             if data != Err(RecvError) {
                 cont = true;
                 sink.submit_command(PROGRESS_UPDATE, data.unwrap().to_string(), None)

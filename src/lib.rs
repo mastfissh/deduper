@@ -20,7 +20,6 @@ use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
-
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
     #[structopt(name = "paths", parse(from_os_str))]
@@ -152,9 +151,15 @@ fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
-pub fn detect_dupes(options: Opt, progress: Sender<&str>) -> Vec<String> {
+fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str) {
+    if let Some(p) = progress {
+        p.send(message).unwrap();
+    }
+}
+
+pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
     let now = Instant::now();
-    progress.send("Walking dirs").unwrap();
+    maybe_send_progress(&progress, "Walking dirs");
 
     let paths = walk_dirs(options.paths);
 
@@ -164,14 +169,14 @@ pub fn detect_dupes(options: Opt, progress: Sender<&str>) -> Vec<String> {
 
     let minimum = options.minimum.unwrap_or(0);
 
-    progress.send("Culling by filesizes").unwrap();
+    maybe_send_progress(&progress, "Culling by filesizes");
     let paths = cull_by_filesize(paths, minimum);
 
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    progress.send("Culling by hash").unwrap();
+    maybe_send_progress(&progress, "Culling by hash");
     let mut confirmed_dupes = cull_by_hash(paths);
 
     if options.debug {
@@ -182,7 +187,7 @@ pub fn detect_dupes(options: Opt, progress: Sender<&str>) -> Vec<String> {
             confirmed_dup.2;
         });
     }
-    progress.send("Formatting").unwrap();
+    maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(&confirmed_dupes);
 
     if let Some(_path) = options.output {
@@ -192,6 +197,6 @@ pub fn detect_dupes(options: Opt, progress: Sender<&str>) -> Vec<String> {
     if options.timing {
         print_timing_info(now);
     }
-    progress.send("Done").unwrap();
+    maybe_send_progress(&progress, "Done");
     return output_strings;
 }
