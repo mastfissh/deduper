@@ -13,6 +13,7 @@ use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, io};
@@ -190,13 +191,12 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
     maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(&confirmed_dupes);
 
-    if let Some(_path) = options.output {
-        // let mut f = File::create(path).unwrap();
-        // f.write_all(output_strings.join("")?).as_bytes().unwrap();
+    if let Some(path) = options.output {
+        let mut f = File::create(path).unwrap();
+        f.write_all(output_strings.join("").as_bytes()).unwrap();
     }
     if options.timing {
         print_timing_info(now);
     }
-    maybe_send_progress(&progress, "Done");
     return output_strings;
 }
