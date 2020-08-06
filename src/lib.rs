@@ -1,16 +1,18 @@
 extern crate blake2;
 extern crate chashmap;
+extern crate crossbeam_channel;
 extern crate rayon;
 extern crate structopt;
 extern crate walkdir;
+
 use blake2::digest::generic_array::typenum::U64;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
 use chashmap::CHashMap;
+use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
-
 use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, io};
@@ -149,21 +151,32 @@ fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
-pub fn detect_dupes(options: Opt) -> Vec<String> {
+fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str) {
+    if let Some(p) = progress {
+        p.send(message).unwrap();
+    }
+}
+
+pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
     let now = Instant::now();
+    maybe_send_progress(&progress, "Walking dirs");
+
     let paths = walk_dirs(options.paths);
+
     if options.debug {
         println!("{} files found ", paths.len());
     }
 
     let minimum = options.minimum.unwrap_or(0);
 
+    maybe_send_progress(&progress, "Culling by filesizes");
     let paths = cull_by_filesize(paths, minimum);
 
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
+    maybe_send_progress(&progress, "Culling by hash");
     let mut confirmed_dupes = cull_by_hash(paths);
 
     if options.debug {
@@ -174,7 +187,7 @@ pub fn detect_dupes(options: Opt) -> Vec<String> {
             confirmed_dup.2;
         });
     }
-
+    maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(&confirmed_dupes);
 
     if let Some(_path) = options.output {
@@ -184,5 +197,6 @@ pub fn detect_dupes(options: Opt) -> Vec<String> {
     if options.timing {
         print_timing_info(now);
     }
+    maybe_send_progress(&progress, "Done");
     return output_strings;
 }
