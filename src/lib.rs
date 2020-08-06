@@ -13,14 +13,13 @@ use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
-
 use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, io};
 use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-// use crossbeam_channel::unbounded;
+
 
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
