@@ -1,7 +1,9 @@
 #![windows_subsystem = "windows"]
 
+extern crate crossbeam_channel;
 extern crate dupelib;
 
+use crossbeam_channel::RecvError;
 use druid::commands;
 use druid::platform_menus;
 use druid::ExtEventSink;
@@ -14,6 +16,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::thread;
 
+use crossbeam_channel::unbounded;
 use druid::AppDelegate;
 use druid::DelegateCtx;
 use druid::Target;
@@ -42,6 +45,7 @@ pub struct AppState {
     pub paths: Arc<Vec<DisplayablePath>>,
     pub dupes: Arc<Vec<String>>,
     pub processing: bool,
+    pub progress_info: String,
 }
 
 #[derive(Clone, Data)]
@@ -53,6 +57,8 @@ pub struct DisplayablePath {
 pub const START_DUPE: Selector = Selector::new("start_dupe");
 
 pub const FINISH_DUPE: Selector = Selector::new("finish_dupe");
+
+pub const PROGRESS_UPDATE: Selector = Selector::new("progress_update");
 
 impl Display for DisplayablePath {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -67,10 +73,26 @@ impl Debug for DisplayablePath {
 }
 
 fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
+    let sinkin = sink.clone();
+    let (s, r) = unbounded();
     thread::spawn(move || {
-        let dupes = detect_dupes(options);
-        sink.submit_command(FINISH_DUPE, dupes, None)
+        let dupes = detect_dupes(options, s);
+        sinkin
+            .submit_command(FINISH_DUPE, dupes, None)
             .expect("command failed to submit");
+    });
+
+    thread::spawn(move || {
+        let mut cont = true;
+        while cont {
+            cont = false;
+            let data = r.recv();
+            if data != Err(RecvError) {
+                cont = true;
+                sink.submit_command(PROGRESS_UPDATE, data.unwrap().to_string(), None)
+                    .expect("command failed to submit");
+            }
+        }
     });
 }
 
@@ -105,6 +127,12 @@ impl AppDelegate<AppState> for Delegate {
 
                 true
             }
+            PROGRESS_UPDATE => {
+                let update = cmd.get_object::<String>().expect("api violation");
+                data.progress_info = update.to_string();
+
+                true
+            }
             _ => true,
         }
     }
@@ -117,19 +145,16 @@ fn ui_builder() -> impl Widget<AppState> {
             ctx.submit_command(cmd, None);
         })
         .padding(5.0);
-
-    let button_placeholder = Label::new(LocalizedString::new("Processing..."))
-        .padding(5.0)
-        .center();
+    let button_placeholder =
+        Label::new(|data: &AppState, _env: &Env| format!("{}", data.progress_info))
+            .padding(5.0)
+            .center();
 
     let either = Either::new(|data, _env| data.processing, button_placeholder, button);
 
+    let paths_to_check = Label::new(LocalizedString::new("Paths to check")).padding(5.0);
 
-    let paths_to_check = Label::new(LocalizedString::new("Paths to check"))
-        .padding(5.0);
-
-    let discovered_dupes = Label::new(LocalizedString::new("Discovered Dupes"))
-        .padding(5.0);
+    let discovered_dupes = Label::new(LocalizedString::new("Discovered Dupes")).padding(5.0);
 
     Flex::column()
         .with_child(paths_to_check)
@@ -165,7 +190,8 @@ fn ui_builder() -> impl Widget<AppState> {
 fn main() {
     let main_window = WindowDesc::new(|| ui_builder())
         .title(LocalizedString::new("Dupe Detector"))
-        .menu(make_menu());
+        .menu(make_menu())
+        .window_size((700.0, 500.0));
     let app = AppLauncher::with_window(main_window);
 
     let delegate = Delegate {
