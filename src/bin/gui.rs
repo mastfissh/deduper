@@ -3,42 +3,32 @@
 extern crate crossbeam_channel;
 extern crate dupelib;
 
-use crossbeam_channel::RecvError;
-use druid::commands;
-use druid::platform_menus;
-use druid::ExtEventSink;
-use druid::Selector;
 use dupelib::detect_dupes;
 use dupelib::Opt;
+
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 
 use crossbeam_channel::unbounded;
-use druid::AppDelegate;
-use druid::DelegateCtx;
-use druid::Target;
+use crossbeam_channel::RecvError;
 
-use druid::{AppLauncher, Widget, WindowDesc};
+use druid::commands;
+use druid::platform_menus;
+use druid::widget::{Button, Either, Flex, Label, List, Scroll};
 use druid::{
-    Command, Data, Env, FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem,
-    SysMods,
+    AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, Env, ExtEventSink,
+    FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods,
+    Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
 
 pub struct Delegate {
     eventsink: ExtEventSink,
 }
-
-use druid::widget::{Button, Either, Flex, Label};
-use druid::WidgetExt;
-
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use druid::widget::{List, Scroll};
-use druid::{Color, UnitPoint};
 
 #[derive(Clone, Data, Default, Lens, Debug)]
 pub struct AppState {
