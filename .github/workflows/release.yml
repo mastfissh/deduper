@@ -24,14 +24,28 @@ jobs:
     - uses: Shopify/upload-to-release@master
       if: matrix.os != 'windows-latest'
       with:
-        name: ${{ matrix.os }}
+        name: ${{ matrix.os }}_gui
         label: ${{ matrix.os }}
-        path: target/release/main
+        path: target/release/gui
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Shopify/upload-to-release@master
+      if: matrix.os != 'windows-latest'
+      with:
+        name: ${{ matrix.os }}_cli
+        label: ${{ matrix.os }}
+        path: target/release/cli
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - uses: Shopify/upload-to-release@master
       if: matrix.os == 'windows-latest'
       with:
-        name: ${{ matrix.os }}.exe
+        name: ${{ matrix.os }}_cli.exe
         label: ${{ matrix.os }}
-        path: target\release\main.exe
+        path: target\release\cli.exe
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Shopify/upload-to-release@master
+      if: matrix.os == 'windows-latest'
+      with:
+        name: ${{ matrix.os }}_gui.exe
+        label: ${{ matrix.os }}
+        path: target\release\gui.exe
         repo-token: ${{ secrets.GITHUB_TOKEN }}
