@@ -22,8 +22,8 @@ use druid::platform_menus;
 use druid::widget::{Button, Either, Flex, Label, List, Scroll};
 use druid::{
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, Env, ExtEventSink,
-    FileDialogOptions, FileInfo, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods,
-    Target, UnitPoint, Widget, WidgetExt, WindowDesc,
+    FileDialogOptions, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods, Target,
+    UnitPoint, Widget, WidgetExt, WindowDesc,
 };
 
 pub struct Delegate {
@@ -44,11 +44,11 @@ pub struct DisplayablePath {
     pathbuf: PathBuf,
 }
 
-pub const START_DUPE: Selector = Selector::new("start_dupe");
+pub const START_DUPE: Selector<u32> = Selector::new("start_dupe");
 
-pub const FINISH_DUPE: Selector = Selector::new("finish_dupe");
+pub const FINISH_DUPE: Selector<Vec<String>> = Selector::new("finish_dupe");
 
-pub const PROGRESS_UPDATE: Selector = Selector::new("progress_update");
+pub const PROGRESS_UPDATE: Selector<String> = Selector::new("progress_update");
 
 impl Display for DisplayablePath {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -90,41 +90,30 @@ impl AppDelegate<AppState> for Delegate {
     fn command(
         &mut self,
         _ctx: &mut DelegateCtx,
-        _target: &Target,
+        _target: Target,
         cmd: &Command,
         data: &mut AppState,
         _env: &Env,
     ) -> bool {
-        match cmd.selector {
-            druid::commands::OPEN_FILE => {
-                let info = cmd.get_object::<FileInfo>().expect("api violation");
-                let pathbuf = info.path().clone().to_path_buf();
-                Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
-                true
-            }
-            START_DUPE => {
-                data.processing = true;
-                data.dupes = Arc::new(Vec::<String>::new());
-                let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
-                let options = Opt::from_paths(paths);
-                run_dupe_detect(self.eventsink.clone(), options);
-                true
-            }
-            FINISH_DUPE => {
-                data.processing = false;
-                let dupes = cmd.get_object::<Vec<String>>().expect("api violation");
-                data.dupes = Arc::new(dupes.to_vec());
-
-                true
-            }
-            PROGRESS_UPDATE => {
-                let update = cmd.get_object::<String>().expect("api violation");
-                data.progress_info = update.to_string();
-
-                true
-            }
-            _ => true,
+        if let Some(info) = cmd.get(druid::commands::OPEN_FILE) {
+            let pathbuf = info.path().clone().to_path_buf();
+            Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
         }
+        if cmd.is(START_DUPE) {
+            data.processing = true;
+            data.dupes = Arc::new(Vec::<String>::new());
+            let paths = data.paths.iter().map(|path| path.pathbuf.clone()).collect();
+            let options = Opt::from_paths(paths);
+            run_dupe_detect(self.eventsink.clone(), options);
+        }
+        if let Some(dupes) = cmd.get(FINISH_DUPE) {
+            data.processing = false;
+            data.dupes = Arc::new(dupes.to_vec());
+        }
+        if let Some(update) = cmd.get(PROGRESS_UPDATE) {
+            data.progress_info = update.to_string();
+        }
+        true
     }
 }
 
