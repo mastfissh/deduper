@@ -96,7 +96,7 @@ impl AppDelegate<AppState> for Delegate {
         _env: &Env,
     ) -> bool {
         if let Some(info) = cmd.get(druid::commands::OPEN_FILE) {
-            let pathbuf = info.path().clone().to_path_buf();
+            let pathbuf = info.path().to_path_buf();
             Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
         }
         if cmd.is(START_DUPE) {
@@ -125,7 +125,7 @@ fn ui_builder() -> impl Widget<AppState> {
         })
         .padding(5.0);
     let button_placeholder =
-        Label::new(|data: &AppState, _env: &Env| format!("{}", data.progress_info))
+        Label::new(|data: &AppState, _env: &Env| data.progress_info.to_string())
             .padding(5.0)
             .center();
 
