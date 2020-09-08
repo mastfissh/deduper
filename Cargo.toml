@@ -4,6 +4,10 @@ version = "1.0.0"
 authors = ["Justin Lambert <mastfish@gmail.com>"]
 publish = false
 edition = "2018"
+default-run = "cli"
+
+[profile.release]
+lto = "thin"
 
 [dependencies]
 walkdir = "2"
@@ -17,5 +21,3 @@ crossbeam-channel = "0.4"
 [lib]
 name = "dupelib"
 path = "src/lib.rs"
-
-
