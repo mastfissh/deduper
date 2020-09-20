@@ -14,14 +14,14 @@ use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, io};
 use structopt::StructOpt;
+use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-use typed_arena::Arena;
 
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
@@ -90,24 +90,27 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-fn walk_dirs<'a>(input: Vec<PathBuf>, arena: &'a Arena<walkdir::DirEntry>) -> CHashMap<&'a Path, ()> {
-    let vecs : Vec<Vec<DirEntry>> = input.par_iter().map(|path| {
-        WalkDir::new(path)
-            .into_iter()
-            .filter_entry(|e| !is_hidden(e))
-            .filter_map(|e| e.ok())
-            .collect()
-    }).collect();
-
+fn walk_dirs<'a>(
+    input: Vec<PathBuf>,
+    arena: &'a Arena<walkdir::DirEntry>,
+) -> CHashMap<&'a Path, ()> {
+    let vec: Vec<DirEntry> = input
+        .par_iter()
+        .map(|path| {
+            WalkDir::new(path)
+                .into_iter()
+                .filter_entry(|e| !is_hidden(e))
+                .filter_map(|e| e.ok())
+                .collect::<Vec<DirEntry>>()
+        })
+        .flatten()
+        .collect();
     let paths = CHashMap::new();
-    for vec in vecs {
-        for entry in vec {
-            let item = arena.alloc(entry);
-            paths.insert(item.path(), ());
-        }
+    for entry in vec {
+        let item = arena.alloc(entry);
+        paths.insert(item.path(), ());
     }
-    
-    return paths;
+    paths
 }
 
 fn cull_by_filesize(input: CHashMap<&Path, ()>, minimum: u64) -> CHashMap<&Path, u64> {
@@ -126,12 +129,12 @@ fn cull_by_filesize(input: CHashMap<&Path, ()>, minimum: u64) -> CHashMap<&Path,
                 }
             }
         });
-    return dupes;
+    dupes
 }
 
 fn cull_by_hash(input: CHashMap<&Path, u64>) -> Vec<(&Path, &Path, u64)> {
     let file_hashes = CHashMap::new();
-    return input
+    input
         .into_iter()
         .par_bridge()
         .filter_map(|(current_path, bytes_count)| {
@@ -142,10 +145,10 @@ fn cull_by_hash(input: CHashMap<&Path, u64>) -> Vec<(&Path, &Path, u64)> {
             }
             None
         })
-        .collect::<Vec<(_, _, _)>>();
+        .collect::<Vec<(_, _, _)>>()
 }
 
-fn format_results(input: &Vec<(&Path, &Path, u64)>) -> Vec<String> {
+fn format_results(input: &[(&Path, &Path, u64)]) -> Vec<String> {
     input
         .par_iter()
         .map(|item| {
@@ -206,5 +209,5 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
     if options.timing {
         print_timing_info(now);
     }
-    return output_strings;
+    output_strings
 }
