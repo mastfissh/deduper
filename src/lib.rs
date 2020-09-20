@@ -15,11 +15,13 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::path::Path;
 use std::time::Instant;
 use std::{fs, io};
 use structopt::StructOpt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
+use typed_arena::Arena;
 
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
@@ -59,13 +61,13 @@ type BoxResult<T> = Result<T, Box<dyn Error>>;
 type HashResult = GenericArray<u8, U64>;
 
 // given a path, returns the filesize of the file at that path
-fn byte_count_file(path: PathBuf) -> BoxResult<u64> {
+fn byte_count_file(path: &Path) -> BoxResult<u64> {
     let metadata = fs::metadata(path)?;
     Ok(metadata.len())
 }
 
 // given a path, returns a hash of all the bytes of the file at that path
-fn hash_file(path: PathBuf) -> BoxResult<HashResult> {
+fn hash_file(path: &Path) -> BoxResult<HashResult> {
     let mut file = File::open(path)?;
     let mut hasher = Blake2b::new();
     io::copy(&mut file, &mut hasher)?;
@@ -88,32 +90,38 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-fn walk_dirs(input: Vec<PathBuf>) -> CHashMap<PathBuf, ()> {
-    let paths = CHashMap::new();
-    input.par_iter().for_each(|path| {
-        for entry in WalkDir::new(path)
+fn walk_dirs<'a>(input: Vec<PathBuf>, arena: &'a Arena<walkdir::DirEntry>) -> CHashMap<&'a Path, ()> {
+    let vecs : Vec<Vec<DirEntry>> = input.par_iter().map(|path| {
+        WalkDir::new(path)
             .into_iter()
             .filter_entry(|e| !is_hidden(e))
             .filter_map(|e| e.ok())
-        {
-            paths.insert(PathBuf::from(entry.path()), ());
+            .collect()
+    }).collect();
+
+    let paths = CHashMap::new();
+    for vec in vecs {
+        for entry in vec {
+            let item = arena.alloc(entry);
+            paths.insert(item.path(), ());
         }
-    });
+    }
+    
     return paths;
 }
 
-fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<PathBuf, u64> {
+fn cull_by_filesize(input: CHashMap<&Path, ()>, minimum: u64) -> CHashMap<&Path, u64> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     input
         .into_iter()
         .par_bridge()
         .for_each(|(current_path, _)| {
-            if let Ok(bytes_count) = byte_count_file(PathBuf::from(&current_path)) {
+            if let Ok(bytes_count) = byte_count_file(current_path) {
                 if bytes_count >= minimum {
-                    if let Some(path) = file_hashes.insert(bytes_count, current_path.clone()) {
-                        dupes.insert(current_path.clone(), bytes_count);
-                        dupes.insert(path.to_path_buf(), bytes_count);
+                    if let Some(path) = file_hashes.insert(bytes_count, current_path) {
+                        dupes.insert(current_path, bytes_count);
+                        dupes.insert(path, bytes_count);
                     }
                 }
             }
@@ -121,15 +129,15 @@ fn cull_by_filesize(input: CHashMap<PathBuf, ()>, minimum: u64) -> CHashMap<Path
     return dupes;
 }
 
-fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf, u64)> {
+fn cull_by_hash(input: CHashMap<&Path, u64>) -> Vec<(&Path, &Path, u64)> {
     let file_hashes = CHashMap::new();
     return input
         .into_iter()
         .par_bridge()
         .filter_map(|(current_path, bytes_count)| {
-            if let Ok(data) = hash_file(PathBuf::from(&current_path)) {
-                if let Some(path) = file_hashes.insert(data, current_path.clone()) {
-                    return Some((current_path.clone(), path.to_path_buf(), bytes_count));
+            if let Ok(data) = hash_file(current_path) {
+                if let Some(path) = file_hashes.insert(data, current_path) {
+                    return Some((current_path, path, bytes_count));
                 }
             }
             None
@@ -137,7 +145,7 @@ fn cull_by_hash(input: CHashMap<PathBuf, u64>) -> Vec<(PathBuf, PathBuf, u64)> {
         .collect::<Vec<(_, _, _)>>();
 }
 
-fn format_results(input: &Vec<(PathBuf, PathBuf, u64)>) -> Vec<String> {
+fn format_results(input: &Vec<(&Path, &Path, u64)>) -> Vec<String> {
     input
         .par_iter()
         .map(|item| {
@@ -161,8 +169,8 @@ fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str)
 pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
     let now = Instant::now();
     maybe_send_progress(&progress, "Walking dirs");
-
-    let paths = walk_dirs(options.paths);
+    let arena = Arena::new();
+    let paths = walk_dirs(options.paths, &arena);
 
     if options.debug {
         println!("{} files found ", paths.len());

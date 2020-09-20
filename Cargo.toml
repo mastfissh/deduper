@@ -18,6 +18,7 @@ chashmap = "2.2"
 structopt = "0.3"
 druid = "0.6"
 crossbeam-channel = "0.4"
+typed-arena = "2"
 [lib]
 name = "dupelib"
 path = "src/lib.rs"
