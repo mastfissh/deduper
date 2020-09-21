@@ -22,3 +22,11 @@ typed-arena = "2"
 [lib]
 name = "dupelib"
 path = "src/lib.rs"
+
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

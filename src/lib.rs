@@ -5,6 +5,8 @@ extern crate rayon;
 extern crate structopt;
 extern crate walkdir;
 
+use std::ops::DerefMut;
+use std::ops::Deref;
 use blake2::digest::generic_array::typenum::U64;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
@@ -22,6 +24,37 @@ use structopt::StructOpt;
 use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
+
+struct HashableDirEntry(DirEntry);
+
+impl Deref for HashableDirEntry {
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+    type Target = DirEntry;
+}
+
+impl DerefMut for HashableDirEntry {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::cmp::PartialEq for HashableDirEntry {
+    
+    fn eq(&self, rhs: &HashableDirEntry) -> bool { 
+        self.path() == rhs.path() 
+    }
+}
+
+impl std::hash::Hash for HashableDirEntry {
+
+    fn hash<H>(&self, h: &mut H) where H: std::hash::Hasher {
+       self.path().hash(h);
+    }
+}
+
 
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
@@ -60,15 +93,16 @@ impl Opt {
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 type HashResult = GenericArray<u8, U64>;
 
+
 // given a path, returns the filesize of the file at that path
-fn byte_count_file(path: &Path) -> BoxResult<u64> {
-    let metadata = fs::metadata(path)?;
+fn byte_count_file(path: &HashableDirEntry) -> BoxResult<u64> {
+    let metadata = path.metadata()?;
     Ok(metadata.len())
 }
 
 // given a path, returns a hash of all the bytes of the file at that path
-fn hash_file(path: &Path) -> BoxResult<HashResult> {
-    let mut file = File::open(path)?;
+fn hash_file(path: &HashableDirEntry) -> BoxResult<HashResult> {
+    let mut file = File::open(path.path())?;
     let mut hasher = Blake2b::new();
     io::copy(&mut file, &mut hasher)?;
     Ok(hasher.finalize())
@@ -92,8 +126,8 @@ fn print_timing_info(now: Instant) {
 
 fn walk_dirs<'a>(
     input: Vec<PathBuf>,
-    arena: &'a Arena<walkdir::DirEntry>,
-) -> CHashMap<&'a Path, ()> {
+    arena: &'a Arena<HashableDirEntry>,
+) -> CHashMap<&'a HashableDirEntry, ()> {
     let vec: Vec<DirEntry> = input
         .par_iter()
         .map(|path| {
@@ -107,13 +141,13 @@ fn walk_dirs<'a>(
         .collect();
     let paths = CHashMap::new();
     for entry in vec {
-        let item = arena.alloc(entry);
-        paths.insert(item.path(), ());
+        let item = arena.alloc(HashableDirEntry(entry));
+        paths.insert(&*item, ());
     }
     paths
 }
 
-fn cull_by_filesize(input: CHashMap<&Path, ()>, minimum: u64) -> CHashMap<&Path, u64> {
+fn cull_by_filesize(input: CHashMap<&HashableDirEntry, ()>, minimum: u64) -> CHashMap<&HashableDirEntry, u64> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     input
@@ -132,7 +166,7 @@ fn cull_by_filesize(input: CHashMap<&Path, ()>, minimum: u64) -> CHashMap<&Path,
     dupes
 }
 
-fn cull_by_hash(input: CHashMap<&Path, u64>) -> Vec<(&Path, &Path, u64)> {
+fn cull_by_hash(input: CHashMap<&HashableDirEntry, u64>) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
     let file_hashes = CHashMap::new();
     input
         .into_iter()
@@ -148,7 +182,7 @@ fn cull_by_hash(input: CHashMap<&Path, u64>) -> Vec<(&Path, &Path, u64)> {
         .collect::<Vec<(_, _, _)>>()
 }
 
-fn format_results(input: &[(&Path, &Path, u64)]) -> Vec<String> {
+fn format_results(input: &[(&HashableDirEntry, &HashableDirEntry, u64)]) -> Vec<String> {
     input
         .par_iter()
         .map(|item| {
@@ -156,8 +190,8 @@ fn format_results(input: &[(&Path, &Path, u64)]) -> Vec<String> {
             format!(
                 "{}: {} | {} \n",
                 bytes_count,
-                dupe1.display(),
-                dupe2.display()
+                dupe1.path().display(),
+                dupe2.path().display()
             )
         })
         .collect::<Vec<_>>()
