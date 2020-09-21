@@ -5,8 +5,6 @@ extern crate rayon;
 extern crate structopt;
 extern crate walkdir;
 
-use std::ops::DerefMut;
-use std::ops::Deref;
 use blake2::digest::generic_array::typenum::U64;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
@@ -16,10 +14,12 @@ use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::ops::Deref;
+use std::ops::DerefMut;
+
+use std::io;
 use std::path::PathBuf;
 use std::time::Instant;
-use std::{fs, io};
 use structopt::StructOpt;
 use typed_arena::Arena;
 use walkdir::DirEntry;
@@ -28,7 +28,6 @@ use walkdir::WalkDir;
 struct HashableDirEntry(DirEntry);
 
 impl Deref for HashableDirEntry {
-
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -42,19 +41,19 @@ impl DerefMut for HashableDirEntry {
 }
 
 impl std::cmp::PartialEq for HashableDirEntry {
-    
-    fn eq(&self, rhs: &HashableDirEntry) -> bool { 
-        self.path() == rhs.path() 
+    fn eq(&self, rhs: &HashableDirEntry) -> bool {
+        self.path() == rhs.path()
     }
 }
 
 impl std::hash::Hash for HashableDirEntry {
-
-    fn hash<H>(&self, h: &mut H) where H: std::hash::Hasher {
-       self.path().hash(h);
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        self.path().hash(h);
     }
 }
-
 
 #[derive(StructOpt, Debug, Default)]
 pub struct Opt {
@@ -92,7 +91,6 @@ impl Opt {
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 type HashResult = GenericArray<u8, U64>;
-
 
 // given a path, returns the filesize of the file at that path
 fn byte_count_file(path: &HashableDirEntry) -> BoxResult<u64> {
@@ -147,7 +145,10 @@ fn walk_dirs<'a>(
     paths
 }
 
-fn cull_by_filesize(input: CHashMap<&HashableDirEntry, ()>, minimum: u64) -> CHashMap<&HashableDirEntry, u64> {
+fn cull_by_filesize(
+    input: CHashMap<&HashableDirEntry, ()>,
+    minimum: u64,
+) -> CHashMap<&HashableDirEntry, u64> {
     let dupes = CHashMap::new();
     let file_hashes = CHashMap::new();
     input
@@ -166,7 +167,9 @@ fn cull_by_filesize(input: CHashMap<&HashableDirEntry, ()>, minimum: u64) -> CHa
     dupes
 }
 
-fn cull_by_hash(input: CHashMap<&HashableDirEntry, u64>) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
+fn cull_by_hash(
+    input: CHashMap<&HashableDirEntry, u64>,
+) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
     let file_hashes = CHashMap::new();
     input
         .into_iter()
@@ -230,7 +233,7 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
     }
     if options.sort {
         confirmed_dupes.sort_by_cached_key(|confirmed_dup| {
-            confirmed_dup.2;
+            confirmed_dup.2
         });
     }
     maybe_send_progress(&progress, "Formatting");
