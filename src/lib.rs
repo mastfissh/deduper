@@ -1,23 +1,21 @@
-extern crate blake2;
 extern crate chashmap;
 extern crate crossbeam_channel;
 extern crate rayon;
 extern crate structopt;
 extern crate walkdir;
 
-use blake2::digest::generic_array::typenum::U64;
-use blake2::digest::generic_array::GenericArray;
-use blake2::{Blake2b, Digest};
 use chashmap::CHashMap;
 use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
+use std::hash::Hasher;
+use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use std::io;
 use std::path::PathBuf;
 use std::time::Instant;
 use structopt::StructOpt;
@@ -90,7 +88,6 @@ impl Opt {
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
-type HashResult = GenericArray<u8, U64>;
 
 // given a path, returns the filesize of the file at that path
 fn byte_count_file(path: &HashableDirEntry) -> BoxResult<u64> {
@@ -98,12 +95,25 @@ fn byte_count_file(path: &HashableDirEntry) -> BoxResult<u64> {
     Ok(metadata.len())
 }
 
+use seahash::SeaHasher;
+
 // given a path, returns a hash of all the bytes of the file at that path
-fn hash_file(path: &HashableDirEntry) -> BoxResult<HashResult> {
-    let mut file = File::open(path.path())?;
-    let mut hasher = Blake2b::new();
-    io::copy(&mut file, &mut hasher)?;
-    Ok(hasher.finalize())
+fn hash_file(path: &HashableDirEntry) -> BoxResult<u64> {
+    let file = File::open(path.path())?;
+    let mut hasher = SeaHasher::new();
+    let mut reader = BufReader::new(file);
+
+    let mut buffer = [0; 64000];
+
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.write(&buffer[..count]);
+    }
+
+    Ok(hasher.finish())
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
@@ -232,9 +242,7 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
         println!("{} dupes after full file hashing", confirmed_dupes.len());
     }
     if options.sort {
-        confirmed_dupes.sort_by_cached_key(|confirmed_dup| {
-            confirmed_dup.2
-        });
+        confirmed_dupes.sort_by_cached_key(|confirmed_dup| confirmed_dup.2);
     }
     maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(&confirmed_dupes);
