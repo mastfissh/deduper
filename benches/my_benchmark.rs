@@ -73,6 +73,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             file.write_all(LOREM_IPSUM.as_bytes());
         }
     }
+    for x in 4..8 {
+        let mut filename = big_dir.clone();
+        filename.push(x.to_string());
+        let mut file = File::create(&filename).unwrap();
+        for _ in 0..x {
+            file.write_all(LOREM_IPSUM.as_bytes());
+        }
+        for _ in 0..100_00 {
+            file.write_all(LOREM_IPSUM.as_bytes());
+        }
+    }
     c.bench_function("lots", |b| {
         b.iter(|| {
             let dir = lots_dir.clone();
