@@ -30,9 +30,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut big_dir = sample_dir.clone();
     big_dir.push("big");
     fs::create_dir_all(&big_dir).unwrap();
-    let mut mixed_dir = sample_dir.clone();
-    mixed_dir.push("mixed");
-    fs::create_dir_all(&mixed_dir).unwrap();
 
     for x in 0..400 {
         let mut filename = lots_dir.clone();
