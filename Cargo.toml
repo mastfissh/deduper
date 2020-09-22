@@ -1,6 +1,6 @@
 [package]
 name = "dedupe"
-version = "2.2.0"
+version = "2.2.1"
 authors = ["Justin Lambert <mastfish@gmail.com>"]
 publish = false
 edition = "2018"
@@ -11,14 +11,13 @@ lto = "thin"
 
 [dependencies]
 walkdir = "2"
-digest = { version = "0.9.0", features = ["std"]}
 rayon = "1.4"
-chashmap = "2.2"
 structopt = "0.3"
 druid = "0.6"
 crossbeam-channel = "0.4"
 typed-arena = "2"
 seahash = "4.0.1"
+dashmap = "3.11.10"
 
 [lib]
 name = "dupelib"

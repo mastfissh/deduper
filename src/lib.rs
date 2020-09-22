@@ -1,10 +1,8 @@
-extern crate chashmap;
 extern crate crossbeam_channel;
 extern crate rayon;
 extern crate structopt;
 extern crate walkdir;
 
-use chashmap::CHashMap;
 use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
@@ -23,6 +21,8 @@ use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
+use dashmap::DashMap;
+
 struct HashableDirEntry(DirEntry);
 
 impl Deref for HashableDirEntry {
@@ -37,6 +37,8 @@ impl DerefMut for HashableDirEntry {
         &mut self.0
     }
 }
+
+impl std::cmp::Eq for HashableDirEntry {}
 
 impl std::cmp::PartialEq for HashableDirEntry {
     fn eq(&self, rhs: &HashableDirEntry) -> bool {
@@ -135,6 +137,17 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+fn is_valid_file(res: Result<DirEntry, walkdir::Error>) -> Option<DirEntry> {
+    if let Ok(entry) = res {
+        if entry
+        .file_type()
+        .is_file() {
+            return Some(entry);
+        };
+    }
+    None
+}
+
 fn print_timing_info(now: Instant) {
     println!(
         "Time since start was {}.{} secs",
@@ -146,19 +159,19 @@ fn print_timing_info(now: Instant) {
 fn walk_dirs<'a>(
     input: Vec<PathBuf>,
     arena: &'a Arena<HashableDirEntry>,
-) -> CHashMap<&'a HashableDirEntry, ()> {
+) -> DashMap<&'a HashableDirEntry, ()> {
     let vec: Vec<DirEntry> = input
         .par_iter()
         .map(|path| {
             WalkDir::new(path)
                 .into_iter()
                 .filter_entry(|e| !is_hidden(e))
-                .filter_map(|e| e.ok())
+                .filter_map(|e| is_valid_file(e))
                 .collect::<Vec<DirEntry>>()
         })
         .flatten()
         .collect();
-    let paths = CHashMap::new();
+    let paths = DashMap::new();
     for entry in vec {
         let item = arena.alloc(HashableDirEntry(entry));
         paths.insert(&*item, ());
@@ -167,11 +180,11 @@ fn walk_dirs<'a>(
 }
 
 fn cull_by_filesize(
-    input: CHashMap<&HashableDirEntry, ()>,
+    input: DashMap<&HashableDirEntry, ()>,
     minimum: u64,
-) -> CHashMap<&HashableDirEntry, u64> {
-    let dupes = CHashMap::new();
-    let file_hashes = CHashMap::new();
+) -> DashMap<&HashableDirEntry, u64> {
+    let dupes = DashMap::new();
+    let file_hashes = DashMap::new();
     input
         .into_iter()
         .par_bridge()
@@ -188,14 +201,14 @@ fn cull_by_filesize(
     dupes
 }
 
-fn cull_by_start(input: CHashMap<&HashableDirEntry, u64>) -> CHashMap<&HashableDirEntry, u64> {
-    let dupes = CHashMap::new();
-    let file_hashes = CHashMap::new();
+fn cull_by_start(input: DashMap<&HashableDirEntry, u64>) -> DashMap<&HashableDirEntry, u64> {
+    let dupes = DashMap::new();
+    let file_hashes = DashMap::new();
     input
         .into_iter()
         .par_bridge()
         .for_each(|(current_path, size)| {
-            if size < 100_000 {
+            if size < 640_000 {
                 dupes.insert(current_path, size);
             } else if let Ok(hash) = hash_start_file(current_path) {
                 if let Some(path) = file_hashes.insert(hash, current_path) {
@@ -208,9 +221,9 @@ fn cull_by_start(input: CHashMap<&HashableDirEntry, u64>) -> CHashMap<&HashableD
 }
 
 fn cull_by_hash(
-    input: CHashMap<&HashableDirEntry, u64>,
+    input: DashMap<&HashableDirEntry, u64>,
 ) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
-    let file_hashes = CHashMap::new();
+    let file_hashes = DashMap::new();
     input
         .into_iter()
         .par_bridge()
@@ -267,6 +280,10 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
 
     maybe_send_progress(&progress, "Culling by start");
     let paths = cull_by_start(paths);
+
+    if options.debug {
+        println!("{} potential dupes after start cull", paths.len());
+    }
 
     maybe_send_progress(&progress, "Culling by hash");
     let mut confirmed_dupes = cull_by_hash(paths);
