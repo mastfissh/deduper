@@ -116,6 +116,17 @@ fn hash_file(path: &HashableDirEntry) -> BoxResult<u64> {
     Ok(hasher.finish())
 }
 
+// given a path, returns a hash of all the bytes of the file at that path
+fn hash_start_file(path: &HashableDirEntry) -> BoxResult<u64> {
+    let file = File::open(path.path())?;
+    let mut hasher = SeaHasher::new();
+    let mut reader = BufReader::new(file);
+    let mut buffer = [0; 64000];
+    let count = reader.read(&mut buffer)?;
+    hasher.write(&buffer[..count]);
+    Ok(hasher.finish())
+}
+
 fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .file_name()
@@ -177,6 +188,25 @@ fn cull_by_filesize(
     dupes
 }
 
+fn cull_by_start(input: CHashMap<&HashableDirEntry, u64>) -> CHashMap<&HashableDirEntry, u64> {
+    let dupes = CHashMap::new();
+    let file_hashes = CHashMap::new();
+    input
+        .into_iter()
+        .par_bridge()
+        .for_each(|(current_path, size)| {
+            if size < 100_000 {
+                dupes.insert(current_path, size);
+            } else if let Ok(hash) = hash_start_file(current_path) {
+                if let Some(path) = file_hashes.insert(hash, current_path) {
+                    dupes.insert(current_path, size);
+                    dupes.insert(path, size);
+                }
+            }
+        });
+    dupes
+}
+
 fn cull_by_hash(
     input: CHashMap<&HashableDirEntry, u64>,
 ) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
@@ -185,8 +215,8 @@ fn cull_by_hash(
         .into_iter()
         .par_bridge()
         .filter_map(|(current_path, bytes_count)| {
-            if let Ok(data) = hash_file(current_path) {
-                if let Some(path) = file_hashes.insert(data, current_path) {
+            if let Ok(hash) = hash_file(current_path) {
+                if let Some(path) = file_hashes.insert(hash, current_path) {
                     return Some((current_path, path, bytes_count));
                 }
             }
@@ -234,6 +264,9 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
+
+    maybe_send_progress(&progress, "Culling by start");
+    let paths = cull_by_start(paths);
 
     maybe_send_progress(&progress, "Culling by hash");
     let mut confirmed_dupes = cull_by_hash(paths);

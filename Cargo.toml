@@ -1,6 +1,6 @@
 [package]
 name = "dedupe"
-version = "1.0.0"
+version = "2.2.0"
 authors = ["Justin Lambert <mastfish@gmail.com>"]
 publish = false
 edition = "2018"

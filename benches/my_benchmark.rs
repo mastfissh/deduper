@@ -12,7 +12,7 @@ cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
 proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 ";
 
-static PADDING: &str = "e";
+static PADDING: &str = "ab";
 
 extern crate dupelib;
 
@@ -58,29 +58,33 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let mut filename = big_dir.clone();
         filename.push(x.to_string());
         let mut file = File::create(&filename).unwrap();
-        for _ in 0..100_00 {
+        for _ in 0..100_000 {
             file.write_all(LOREM_IPSUM.as_bytes());
         }
     }
+    let mut count = 0;
     for x in 4..8 {
+        count += 1;
         let mut filename = big_dir.clone();
         filename.push(x.to_string());
         let mut file = File::create(&filename).unwrap();
-        for _ in 0..100_00 {
+        for _ in 0..100_000 {
             file.write_all(LOREM_IPSUM.as_bytes());
         }
-        for _ in 0..x {
-            file.write_all(LOREM_IPSUM.as_bytes());
+        for _ in 0..count {
+            file.write_all(PADDING.as_bytes());
         }
     }
-    for x in 4..8 {
+    let mut count = 0;
+    for x in 8..12 {
+        count += 1;
         let mut filename = big_dir.clone();
         filename.push(x.to_string());
         let mut file = File::create(&filename).unwrap();
-        for _ in 0..x {
-            file.write_all(LOREM_IPSUM.as_bytes());
+        for _ in 0..count {
+            file.write_all(PADDING.as_bytes());
         }
-        for _ in 0..100_00 {
+        for _ in 0..100_000 {
             file.write_all(LOREM_IPSUM.as_bytes());
         }
     }
