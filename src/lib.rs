@@ -139,9 +139,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 fn is_valid_file(res: Result<DirEntry, walkdir::Error>) -> Option<DirEntry> {
     if let Ok(entry) = res {
-        if entry
-        .file_type()
-        .is_file() {
+        if entry.file_type().is_file() {
             return Some(entry);
         };
     }

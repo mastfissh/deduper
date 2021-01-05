@@ -22,8 +22,8 @@ use druid::platform_menus;
 use druid::widget::{Button, Either, Flex, Label, List, Scroll};
 use druid::{
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, Env, ExtEventSink,
-    FileDialogOptions, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods, Target,
-    UnitPoint, Widget, WidgetExt, WindowDesc, Handled
+    FileDialogOptions, Handled, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods,
+    Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
 
 pub struct Delegate {
@@ -196,7 +196,7 @@ fn file_menu() -> MenuDesc<AppState> {
                 Command::new(
                     commands::SHOW_OPEN_PANEL,
                     FileDialogOptions::new().select_directories(),
-                    Target::Auto
+                    Target::Auto,
                 ),
             )
             .hotkey(SysMods::Cmd, "o"),
