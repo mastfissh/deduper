@@ -22,8 +22,8 @@ use druid::platform_menus;
 use druid::widget::{Button, Either, Flex, Label, List, Scroll};
 use druid::{
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, Env, ExtEventSink,
-    FileDialogOptions, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods, Target,
-    UnitPoint, Widget, WidgetExt, WindowDesc,
+    FileDialogOptions, Handled, Lens, LocalizedString, MenuDesc, MenuItem, Selector, SysMods,
+    Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
 
 pub struct Delegate {
@@ -68,7 +68,7 @@ fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
     thread::spawn(move || {
         let dupes = detect_dupes(options, Some(sender));
         sinkin
-            .submit_command(FINISH_DUPE, dupes, None)
+            .submit_command(FINISH_DUPE, dupes, Target::Auto)
             .expect("command failed to submit");
     });
 
@@ -79,7 +79,7 @@ fn run_dupe_detect(sink: ExtEventSink, options: Opt) {
             let data = receiver.recv();
             if data != Err(RecvError) {
                 cont = true;
-                sink.submit_command(PROGRESS_UPDATE, data.unwrap().to_string(), None)
+                sink.submit_command(PROGRESS_UPDATE, data.unwrap().to_string(), Target::Auto)
                     .expect("command failed to submit");
             }
         }
@@ -94,7 +94,7 @@ impl AppDelegate<AppState> for Delegate {
         cmd: &Command,
         data: &mut AppState,
         _env: &Env,
-    ) -> bool {
+    ) -> Handled {
         if let Some(info) = cmd.get(druid::commands::OPEN_FILE) {
             let pathbuf = info.path().to_path_buf();
             Arc::make_mut(&mut data.paths).push(DisplayablePath { pathbuf });
@@ -113,15 +113,15 @@ impl AppDelegate<AppState> for Delegate {
         if let Some(update) = cmd.get(PROGRESS_UPDATE) {
             data.progress_info = update.to_string();
         }
-        true
+        Handled::Yes
     }
 }
 
 fn ui_builder() -> impl Widget<AppState> {
     let button = Button::new("Check")
         .on_click(|ctx, _data: &mut AppState, _env| {
-            let cmd = Command::new(START_DUPE, 0);
-            ctx.submit_command(cmd, None);
+            let cmd = Command::new(START_DUPE, 0, Target::Auto);
+            ctx.submit_command(cmd);
         })
         .padding(5.0);
     let button_placeholder =
@@ -196,6 +196,7 @@ fn file_menu() -> MenuDesc<AppState> {
                 Command::new(
                     commands::SHOW_OPEN_PANEL,
                     FileDialogOptions::new().select_directories(),
+                    Target::Auto,
                 ),
             )
             .hotkey(SysMods::Cmd, "o"),
