@@ -17,7 +17,7 @@ druid = "0.7"
 crossbeam-channel = "0.5"
 typed-arena = "2"
 seahash = "4.0.1"
-dashmap = "4.0.1"
+dashmap = "4.0.2"
 
 [lib]
 name = "dupelib"
