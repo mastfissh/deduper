@@ -3,7 +3,7 @@ name = "dedupe"
 version = "2.2.1"
 authors = ["Justin Lambert <mastfish@gmail.com>"]
 publish = false
-edition = "2018"
+edition = "2021"
 default-run = "cli"
 
 [profile.release]
