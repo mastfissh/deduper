@@ -1,2 +1,1 @@
-[target.arm-unknown-linux-gnueabihf]
-image = "my/image:tag"
+[target.armv7-unknown-linux-gnueabihf]
