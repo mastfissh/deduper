@@ -17,6 +17,7 @@ crossbeam-channel = "0.5"
 typed-arena = "2"
 seahash = "4.1.0"
 dashmap = "4.0.2"
+druid =  {version = "0.7",optional = true}
 
 [lib]
 name = "dupelib"
@@ -25,8 +26,11 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 criterion = "0.3"
-druid = "0.7"
+
 
 [[bench]]
 name = "my_benchmark"
 harness = false
+
+[features]
+gui = ["druid"]
