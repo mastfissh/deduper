@@ -166,8 +166,10 @@ fn ui_builder() -> impl Widget<AppState> {
             1.0,
         )
 }
+
 fn main() {
-    let main_window = WindowDesc::new(|| ui_builder())
+
+#[allow(clippy::redundant_closure)]    let main_window = WindowDesc::new(|| ui_builder())
         .title(LocalizedString::new("Dupe Detector"))
         .menu(make_menu())
         .window_size((700.0, 500.0));

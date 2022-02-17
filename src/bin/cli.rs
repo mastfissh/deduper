@@ -22,7 +22,7 @@ fn run_dupe_detect(options: Opt) {
             let data = receiver.recv();
             if data != Err(RecvError) {
                 cont = true;
-                println!("{}", data.unwrap().to_string());
+                println!("{}", data.unwrap());
             }
         }
     });
