@@ -154,17 +154,17 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-fn walk_dirs<'a>(
+fn walk_dirs(
     input: Vec<PathBuf>,
-    arena: &'a Arena<HashableDirEntry>,
-) -> DashMap<&'a HashableDirEntry, ()> {
+    arena: &Arena<HashableDirEntry>,
+) -> DashMap<&HashableDirEntry, ()> {
     let vec: Vec<DirEntry> = input
         .par_iter()
         .map(|path| {
             WalkDir::new(path)
                 .into_iter()
                 .filter_entry(|e| !is_hidden(e))
-                .filter_map(|e| is_valid_file(e))
+                .filter_map(is_valid_file)
                 .collect::<Vec<DirEntry>>()
         })
         .flatten()
