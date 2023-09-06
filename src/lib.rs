@@ -10,44 +10,11 @@ use std::fs::File;
 use std::hash::Hasher;
 use std::io::BufReader;
 use std::io::Read;
-use std::ops::Deref;
-use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::time::Instant;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-
-struct HashableDirEntry(DirEntry);
-
-impl Deref for HashableDirEntry {
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-    type Target = DirEntry;
-}
-
-impl DerefMut for HashableDirEntry {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::cmp::Eq for HashableDirEntry {}
-
-impl std::cmp::PartialEq for HashableDirEntry {
-    fn eq(&self, rhs: &HashableDirEntry) -> bool {
-        self.path() == rhs.path()
-    }
-}
-
-impl std::hash::Hash for HashableDirEntry {
-    fn hash<H>(&self, h: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        self.path().hash(h);
-    }
-}
+use seahash::SeaHasher;
 
 #[derive(Parser, Debug, Default)]
 pub struct Opt {
@@ -70,8 +37,6 @@ fn byte_count_file(path: &DirEntry) -> BoxResult<u64> {
     let metadata = path.metadata()?;
     Ok(metadata.len())
 }
-
-use seahash::SeaHasher;
 
 // given a path, returns a hash of the bytes of the file at that path
 fn hash_file(path: &DirEntry) -> BoxResult<u64> {
