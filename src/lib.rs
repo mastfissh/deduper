@@ -2,7 +2,6 @@ extern crate clap;
 extern crate rayon;
 extern crate walkdir;
 use clap::Parser;
-use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::error::Error;
@@ -212,11 +211,6 @@ fn format_results(input: Vec<CandidateFile>) -> Vec<String> {
     out
 }
 
-fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str) {
-    if let Some(p) = progress {
-        p.send(message).unwrap();
-    }
-}
 #[derive(Clone)]
 struct CandidateFile {
     path: DirEntry,
@@ -225,9 +219,8 @@ struct CandidateFile {
     full_hash: Option<u64>,
 }
 
-pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
+pub fn detect_dupes(options: Opt) -> Vec<String> {
     let now = Instant::now();
-    maybe_send_progress(&progress, "Walking dirs");
     let paths = walk_dirs(options.paths);
 
     if options.debug {
@@ -236,28 +229,24 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
 
     let minimum = options.minimum.unwrap_or(1);
 
-    maybe_send_progress(&progress, "Culling by filesizes");
     let paths = cull_by_filesize(paths, minimum);
 
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    maybe_send_progress(&progress, "Culling by start");
     let paths = cull_by_start(paths);
 
     if options.debug {
         println!("{} potential dupes after start cull", paths.len());
     }
 
-    maybe_send_progress(&progress, "Culling by hash");
     let paths = cull_by_hash(paths);
 
     if options.debug {
         println!("{} dupes after full file hashing", paths.len());
     }
 
-    maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(paths);
 
     if options.timing {

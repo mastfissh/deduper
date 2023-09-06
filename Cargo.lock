@@ -258,11 +258,10 @@ dependencies = [
 
 [[package]]
 name = "dedupe"
-version = "2.2.1"
+version = "3.2.1"
 dependencies = [
  "clap",
  "criterion",
- "crossbeam-channel",
  "rayon",
  "seahash",
  "walkdir",

@@ -1,6 +1,6 @@
 [package]
 name = "dedupe"
-version = "2.2.1"
+version = "3.2.1"
 authors = ["Justin Lambert <mastfish@gmail.com>"]
 publish = false
 edition = "2021"
@@ -12,14 +12,12 @@ lto = "thin"
 [dependencies]
 walkdir = "2"
 rayon = "1"
-crossbeam-channel = "0"
 seahash = "4"
 clap = { version = "4.4.2", features = ["derive"] }
 
 [lib]
 name = "dupelib"
 path = "src/lib.rs"
-
 
 [dev-dependencies]
 criterion = "0"
