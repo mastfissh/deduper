@@ -1,9 +1,10 @@
 extern crate clap;
 extern crate rayon;
 extern crate walkdir;
-use crossbeam_channel::Sender;
 use clap::Parser;
+use crossbeam_channel::Sender;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs::File;
 use std::hash::Hasher;
@@ -15,8 +16,6 @@ use std::path::PathBuf;
 use std::time::Instant;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-use std::collections::HashSet;
-
 
 struct HashableDirEntry(DirEntry);
 
@@ -129,9 +128,7 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-fn walk_dirs(
-    input: Vec<PathBuf>,
-) -> Vec<CandidateFile> {
+fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
     let vec: Vec<DirEntry> = input
         .par_iter()
         .map(|path| {
@@ -148,19 +145,15 @@ fn walk_dirs(
         let item = CandidateFile {
             path: entry,
             size: None,
-           start_hash: None,
-           full_hash: None,
+            start_hash: None,
+            full_hash: None,
         };
         paths.push(item);
     }
     paths
 }
 
-
-fn cull_by_filesize(
-    input: Vec<CandidateFile>,
-    minimum: u64,
-) -> Vec<CandidateFile> {
+fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFile> {
     let mut out = Vec::new();
     for mut candidate in input {
         let current_path = &candidate.path;
@@ -174,24 +167,25 @@ fn cull_by_filesize(
     out
 }
 
-fn cull_by_start(
-    input: Vec<CandidateFile>,
-) -> Vec<CandidateFile> {
-
-    let input: Vec<_> = input.par_iter().cloned().map(|mut candidate| {
-        let current_path = &candidate.path;
-        if let Ok(hash) = hash_start_file(current_path) {
-            candidate.start_hash = Some(hash);
-        }
-        candidate
-    }).collect();
+fn cull_by_start(input: Vec<CandidateFile>) -> Vec<CandidateFile> {
+    let input: Vec<_> = input
+        .par_iter()
+        .cloned()
+        .map(|mut candidate| {
+            let current_path = &candidate.path;
+            if let Ok(hash) = hash_start_file(current_path) {
+                candidate.start_hash = Some(hash);
+            }
+            candidate
+        })
+        .collect();
 
     let mut hashes = HashSet::new();
-    let mut dupe_hashes = Vec::new();
+    let mut dupe_hashes = HashSet::new();
     for candidate in &input {
         if let Some(hash) = candidate.start_hash {
-           if hashes.contains(&hash){
-                dupe_hashes.push(hash)
+            if hashes.contains(&hash) {
+                dupe_hashes.insert(hash);
             } else {
                 hashes.insert(hash);
             }
@@ -200,8 +194,8 @@ fn cull_by_start(
 
     let mut out = Vec::new();
     for candidate in input {
-        if let Some(hash) = candidate.start_hash{
-            if dupe_hashes.contains(&hash){
+        if let Some(hash) = candidate.start_hash {
+            if dupe_hashes.contains(&hash) {
                 out.push(candidate)
             }
         }
@@ -209,24 +203,25 @@ fn cull_by_start(
     out
 }
 
-fn cull_by_hash(
-    input: Vec<CandidateFile>,
-) -> Vec<CandidateFile> {
-
-    let input: Vec<_> = input.par_iter().cloned().map(|mut candidate| {
-        let current_path = &candidate.path;
-        if let Ok(hash) = hash_file(current_path) {
-            candidate.start_hash = Some(hash);
-        }
-        candidate
-    }).collect();
+fn cull_by_hash(input: Vec<CandidateFile>) -> Vec<CandidateFile> {
+    let input: Vec<_> = input
+        .par_iter()
+        .cloned()
+        .map(|mut candidate| {
+            let current_path = &candidate.path;
+            if let Ok(hash) = hash_file(current_path) {
+                candidate.start_hash = Some(hash);
+            }
+            candidate
+        })
+        .collect();
 
     let mut hashes = HashSet::new();
-    let mut dupe_hashes = Vec::new();
+    let mut dupe_hashes = HashSet::new();
     for candidate in &input {
         if let Some(hash) = candidate.full_hash {
-           if hashes.contains(&hash){
-                dupe_hashes.push(hash)
+            if hashes.contains(&hash) {
+                dupe_hashes.insert(hash);
             } else {
                 hashes.insert(hash);
             }
@@ -235,8 +230,8 @@ fn cull_by_hash(
 
     let mut out = Vec::new();
     for candidate in input {
-        if let Some(hash) = candidate.full_hash{
-            if dupe_hashes.contains(&hash){
+        if let Some(hash) = candidate.full_hash {
+            if dupe_hashes.contains(&hash) {
                 out.push(candidate)
             }
         }
@@ -245,15 +240,11 @@ fn cull_by_hash(
 }
 
 fn format_results(input: Vec<CandidateFile>) -> Vec<String> {
-    input
-        .par_iter()
-        .map(|item| {
-            format!(
-                "{}: \n",
-                item.path.path().display()
-            )
-        })
-        .collect::<Vec<_>>()
+    let mut out = Vec::new();
+    for item in input {
+        out.push(format!("{}: \n", item.path.path().display()))
+    }
+    out
 }
 
 fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str) {
@@ -263,12 +254,11 @@ fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str)
 }
 #[derive(Clone)]
 struct CandidateFile {
-   path: DirEntry,
-   size: Option<u64>,
-   start_hash: Option<u64>,
-   full_hash: Option<u64>,
+    path: DirEntry,
+    size: Option<u64>,
+    start_hash: Option<u64>,
+    full_hash: Option<u64>,
 }
-
 
 pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
     let now = Instant::now();
