@@ -7,7 +7,7 @@ use dupelib::detect_dupes;
 use dupelib::Opt;
 
 fn run_dupe_detect(options: Opt) {
-   detect_dupes(options);
+    detect_dupes(options);
 }
 
 fn main() {
