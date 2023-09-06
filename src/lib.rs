@@ -1,59 +1,24 @@
+extern crate bytesize;
 extern crate clap;
-extern crate crossbeam_channel;
 extern crate rayon;
 extern crate walkdir;
+use bytesize::ByteSize;
 use clap::Parser;
-use crossbeam_channel::Sender;
 use rayon::prelude::*;
+use seahash::SeaHasher;
+use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs::File;
 use std::hash::Hasher;
 use std::io::BufReader;
 use std::io::Read;
-use std::io::Write;
-use std::ops::Deref;
-use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::time::Instant;
-use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
-use dashmap::DashMap;
-
-struct HashableDirEntry(DirEntry);
-
-impl Deref for HashableDirEntry {
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-    type Target = DirEntry;
-}
-
-impl DerefMut for HashableDirEntry {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::cmp::Eq for HashableDirEntry {}
-
-impl std::cmp::PartialEq for HashableDirEntry {
-    fn eq(&self, rhs: &HashableDirEntry) -> bool {
-        self.path() == rhs.path()
-    }
-}
-
-impl std::hash::Hash for HashableDirEntry {
-    fn hash<H>(&self, h: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        self.path().hash(h);
-    }
-}
-
-#[derive(Parser, Debug, Default)]
+#[derive(Parser, Default)]
 pub struct Opt {
     pub paths: Vec<PathBuf>,
 
@@ -64,44 +29,23 @@ pub struct Opt {
     pub debug: bool,
 
     #[arg(short, long)]
-    pub output: Option<PathBuf>,
-    #[arg(short, long)]
     pub minimum: Option<u64>,
-    #[arg(short, long)]
-    pub sort: bool,
-}
-
-impl Opt {
-    pub fn from_paths(paths: Vec<PathBuf>) -> Opt {
-        Opt {
-            paths,
-            timing: false,
-            debug: false,
-            output: None,
-            minimum: None,
-            sort: false,
-        }
-    }
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 
 // given a path, returns the filesize of the file at that path
-fn byte_count_file(path: &HashableDirEntry) -> BoxResult<u64> {
+fn byte_count_file(path: &DirEntry) -> BoxResult<u64> {
     let metadata = path.metadata()?;
     Ok(metadata.len())
 }
 
-use seahash::SeaHasher;
-
-// given a path, returns a hash of all the bytes of the file at that path
-fn hash_file(path: &HashableDirEntry) -> BoxResult<u64> {
+// given a path, returns a hash of the bytes of the file at that path
+fn hash_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
     let mut reader = BufReader::new(file);
-
-    let mut buffer = [0; 64000];
-
+    let mut buffer = vec![0; 512000];
     loop {
         let count = reader.read(&mut buffer)?;
         if count == 0 {
@@ -109,12 +53,11 @@ fn hash_file(path: &HashableDirEntry) -> BoxResult<u64> {
         }
         hasher.write(&buffer[..count]);
     }
-
     Ok(hasher.finish())
 }
 
-// given a path, returns a hash of all the bytes of the file at that path
-fn hash_start_file(path: &HashableDirEntry) -> BoxResult<u64> {
+// given a path, returns a hash of the first 64k bytes of the file at that path
+fn hash_start_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
     let mut reader = BufReader::new(file);
@@ -149,153 +92,200 @@ fn print_timing_info(now: Instant) {
     );
 }
 
-fn walk_dirs(
-    input: Vec<PathBuf>,
-    arena: &Arena<HashableDirEntry>,
-) -> DashMap<&HashableDirEntry, ()> {
-    let vec: Vec<DirEntry> = input
+fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
+    input
         .par_iter()
         .map(|path| {
             WalkDir::new(path)
                 .into_iter()
                 .filter_entry(|e| !is_hidden(e))
                 .filter_map(is_valid_file)
-                .collect::<Vec<DirEntry>>()
+                .map(|entry| CandidateFile { path: entry })
+                .collect::<Vec<_>>()
         })
         .flatten()
-        .collect();
-    let paths = DashMap::new();
-    for entry in vec {
-        let item = arena.alloc(HashableDirEntry(entry));
-        paths.insert(&*item, ());
+        .collect()
+}
+
+struct DupeRecords<T>
+where
+    T: std::cmp::Eq + std::hash::Hash,
+{
+    hashes: HashSet<T>,
+    dupe_hashes: HashSet<T>,
+}
+
+impl<T> DupeRecords<T>
+where
+    T: std::cmp::Eq + std::hash::Hash,
+{
+    fn new() -> DupeRecords<T> {
+        DupeRecords {
+            hashes: HashSet::<T>::new(),
+            dupe_hashes: HashSet::<T>::new(),
+        }
     }
-    paths
+
+    fn load(&mut self, datum: T) {
+        if self.hashes.contains(&datum) {
+            self.dupe_hashes.insert(datum);
+        } else {
+            self.hashes.insert(datum);
+        }
+    }
+
+    fn contains(&self, datum: T) -> bool {
+        return self.dupe_hashes.contains(&datum);
+    }
 }
 
-fn cull_by_filesize(
-    input: DashMap<&HashableDirEntry, ()>,
-    minimum: u64,
-) -> DashMap<&HashableDirEntry, u64> {
-    let dupes = DashMap::new();
-    let file_hashes = DashMap::new();
-    input
-        .into_iter()
-        .par_bridge()
-        .for_each(|(current_path, _)| {
-            if let Ok(bytes_count) = byte_count_file(current_path) {
+fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFileWithSize> {
+    let input: Vec<_> = input
+        .into_par_iter()
+        .filter_map(|candidate| {
+            let current_path = candidate.path;
+            if let Ok(bytes_count) = byte_count_file(&current_path) {
                 if bytes_count >= minimum {
-                    if let Some(path) = file_hashes.insert(bytes_count, current_path) {
-                        dupes.insert(current_path, bytes_count);
-                        dupes.insert(path, bytes_count);
-                    }
-                }
-            }
-        });
-    dupes
-}
-
-fn cull_by_start(input: DashMap<&HashableDirEntry, u64>) -> DashMap<&HashableDirEntry, u64> {
-    let dupes = DashMap::new();
-    let file_hashes = DashMap::new();
-    input
-        .into_iter()
-        .par_bridge()
-        .for_each(|(current_path, size)| {
-            if size < 640_000 {
-                dupes.insert(current_path, size);
-            } else if let Ok(hash) = hash_start_file(current_path) {
-                if let Some(path) = file_hashes.insert(hash, current_path) {
-                    dupes.insert(current_path, size);
-                    dupes.insert(path, size);
-                }
-            }
-        });
-    dupes
-}
-
-fn cull_by_hash(
-    input: DashMap<&HashableDirEntry, u64>,
-) -> Vec<(&HashableDirEntry, &HashableDirEntry, u64)> {
-    let file_hashes = DashMap::new();
-    input
-        .into_iter()
-        .par_bridge()
-        .filter_map(|(current_path, bytes_count)| {
-            if let Ok(hash) = hash_file(current_path) {
-                if let Some(path) = file_hashes.insert(hash, current_path) {
-                    return Some((current_path, path, bytes_count));
+                    let res = CandidateFileWithSize {
+                        path: current_path,
+                        size: bytes_count,
+                    };
+                    return Some(res);
                 }
             }
             None
         })
-        .collect::<Vec<(_, _, _)>>()
-}
-
-fn format_results(input: &[(&HashableDirEntry, &HashableDirEntry, u64)]) -> Vec<String> {
-    input
-        .par_iter()
-        .map(|item| {
-            let (dupe1, dupe2, bytes_count) = item;
-            format!(
-                "{}: {} | {} \n",
-                bytes_count,
-                dupe1.path().display(),
-                dupe2.path().display()
-            )
-        })
-        .collect::<Vec<_>>()
-}
-
-fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str) {
-    if let Some(p) = progress {
-        p.send(message).unwrap();
+        .collect();
+    let mut dupes = DupeRecords::new();
+    for candidate in &input {
+        dupes.load(candidate.size)
     }
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.size))
+        .collect()
 }
 
-pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String> {
-    let now = Instant::now();
-    maybe_send_progress(&progress, "Walking dirs");
-    let arena = Arena::new();
-    let paths = walk_dirs(options.paths, &arena);
+fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSizeAndHash> {
+    let input: Vec<_> = input
+        .into_par_iter()
+        .filter_map(|candidate| {
+            let current_path = candidate.path;
+            if let Ok(hash) = hash_start_file(&current_path) {
+                let res = CandidateFileWithSizeAndHash {
+                    path: current_path,
+                    size: candidate.size,
+                    hash: hash,
+                };
+                return Some(res);
+            }
+            None
+        })
+        .collect();
+    let mut dupes = DupeRecords::new();
+    for candidate in &input {
+        dupes.load(candidate.hash)
+    }
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.hash))
+        .collect()
+}
 
+fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWithSizeAndHash> {
+    let input: Vec<_> = input
+        .into_par_iter()
+        .filter_map(|candidate| {
+            let current_path = candidate.path;
+            if let Ok(hash) = hash_file(&current_path) {
+                let res = CandidateFileWithSizeAndHash {
+                    path: current_path,
+                    size: candidate.size,
+                    hash: hash,
+                };
+                return Some(res);
+            }
+            None
+        })
+        .collect();
+    let mut dupes = DupeRecords::new();
+    for candidate in &input {
+        dupes.load(candidate.hash)
+    }
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.hash))
+        .collect()
+}
+
+fn format_results(
+    mut input: Vec<CandidateFileWithSizeAndHash>,
+) -> Vec<CandidateFileWithSizeAndHash> {
+    input.sort_unstable_by(|a, b| {
+        let size_cmp = b.size.cmp(&a.size);
+        if size_cmp != Ordering::Equal {
+            return size_cmp;
+        }
+        let hash_cmp = b.hash.cmp(&a.hash);
+        if hash_cmp != Ordering::Equal {
+            return hash_cmp;
+        }
+        format!("{}", b.path.path().display()).cmp(&format!("{}", a.path.path().display()))
+    });
+    let mut last_size: u64 = 0;
+    let mut last_hash: u64 = 0;
+    for item in &input {
+        let hash = item.hash;
+        if hash != last_hash {
+            println!("-------");
+            last_hash = hash;
+        }
+        let size = item.size;
+        if size != last_size {
+            println!("Size: {} ", ByteSize(size));
+            last_size = size;
+        }
+        println!("Path: {} ", item.path.path().display());
+    }
+    return input;
+}
+
+struct CandidateFile {
+    path: DirEntry,
+}
+
+struct CandidateFileWithSize {
+    path: DirEntry,
+    size: u64,
+}
+
+pub struct CandidateFileWithSizeAndHash {
+    path: DirEntry,
+    size: u64,
+    hash: u64,
+}
+
+pub fn detect_dupes(options: Opt) -> Vec<CandidateFileWithSizeAndHash> {
+    let now = Instant::now();
+    let paths = walk_dirs(options.paths);
     if options.debug {
         println!("{} files found ", paths.len());
     }
-
-    let minimum = options.minimum.unwrap_or(0);
-
-    maybe_send_progress(&progress, "Culling by filesizes");
+    let minimum = options.minimum.unwrap_or(1);
     let paths = cull_by_filesize(paths, minimum);
-
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
-
-    maybe_send_progress(&progress, "Culling by start");
     let paths = cull_by_start(paths);
-
     if options.debug {
         println!("{} potential dupes after start cull", paths.len());
     }
-
-    maybe_send_progress(&progress, "Culling by hash");
-    let mut confirmed_dupes = cull_by_hash(paths);
-
+    let paths = cull_by_hash(paths);
     if options.debug {
-        println!("{} dupes after full file hashing", confirmed_dupes.len());
-    }
-    if options.sort {
-        confirmed_dupes.sort_by_cached_key(|confirmed_dup| confirmed_dup.2);
-    }
-    maybe_send_progress(&progress, "Formatting");
-    let output_strings = format_results(&confirmed_dupes);
-
-    if let Some(path) = options.output {
-        let mut f = File::create(path).unwrap();
-        f.write_all(output_strings.join("").as_bytes()).unwrap();
+        println!("{} dupes after full file hashing", paths.len());
     }
     if options.timing {
         print_timing_info(now);
     }
-    output_strings
+    format_results(paths)
 }

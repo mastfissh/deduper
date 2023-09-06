@@ -13,7 +13,7 @@ fn test_case_dir(case: &str) -> PathBuf {
 #[test]
 fn test_base_case() {
     let options = Default::default();
-    assert_eq!(dupelib::detect_dupes(options, None).len(), 0);
+    assert_eq!(dupelib::detect_dupes(options).len(), 0);
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn test_one_file() {
         paths: vec![path],
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options, None).len(), 0);
+    assert_eq!(dupelib::detect_dupes(options).len(), 0);
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn test_ident_files() {
         paths: vec![path],
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options, None).len(), 2);
+    assert_eq!(dupelib::detect_dupes(options).len(), 4);
 }
 
 #[test]
@@ -44,5 +44,5 @@ fn test_ident_files_minimum() {
         minimum: Some(2),
         ..Default::default()
     };
-    assert_eq!(dupelib::detect_dupes(options, None).len(), 1);
+    assert_eq!(dupelib::detect_dupes(options).len(), 2);
 }
