@@ -115,14 +115,13 @@ fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
 
 fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFileWithSize> {
     let input: Vec<_> = input
-        .par_iter()
-        .cloned()
+        .into_par_iter()
         .filter_map(|candidate| {
-            let current_path = &candidate.path;
+            let current_path = candidate.path;
             if let Ok(bytes_count) = byte_count_file(&current_path) {
                 if bytes_count >= minimum {
                     let res = CandidateFileWithSize {
-                        path: candidate.path,
+                        path: current_path,
                         size: bytes_count,
                     };
                     return Some(res);
@@ -131,7 +130,6 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
             None
         })
         .collect();
-
     let mut hashes = HashSet::new();
     let mut dupe_hashes = HashSet::new();
     for candidate in &input {
@@ -153,13 +151,12 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
 
 fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSizeAndHash> {
     let input: Vec<_> = input
-        .par_iter()
-        .cloned()
+        .into_par_iter()
         .filter_map(|candidate| {
-            let current_path = &candidate.path;
-            if let Ok(hash) = hash_start_file(current_path) {
+            let current_path = candidate.path;
+            if let Ok(hash) = hash_start_file(&current_path) {
                 let res = CandidateFileWithSizeAndHash {
-                    path: candidate.path,
+                    path: current_path,
                     size: candidate.size,
                     hash: hash,
                 };
@@ -190,13 +187,16 @@ fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSize
 
 fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWithSizeAndHash> {
     let input: Vec<_> = input
-        .par_iter()
-        .cloned()
-        .filter_map(|mut candidate| {
-            let current_path = &candidate.path;
-            if let Ok(hash) = hash_file(current_path) {
-                candidate.hash = hash;
-                return Some(candidate);
+        .into_par_iter()
+        .filter_map(|candidate| {
+            let current_path = candidate.path;
+            if let Ok(hash) = hash_file(&current_path) {
+                let res = CandidateFileWithSizeAndHash {
+                    path: current_path,
+                    size: candidate.size,
+                    hash: hash,
+                };
+                return Some(res);
             }
             None
         })
