@@ -1,7 +1,6 @@
-
+extern crate clap;
 extern crate crossbeam_channel;
 extern crate dupelib;
-extern crate clap;
 
 use clap::Parser;
 use crossbeam_channel::unbounded;
@@ -13,7 +12,6 @@ use dupelib::detect_dupes;
 use dupelib::Opt;
 
 use std::thread;
-
 
 fn run_dupe_detect(options: Opt) {
     let (sender, receiver): (Sender<&str>, Receiver<&str>) = unbounded();

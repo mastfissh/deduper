@@ -1,7 +1,8 @@
+extern crate clap;
 extern crate crossbeam_channel;
 extern crate rayon;
 extern crate walkdir;
-extern crate clap;
+use clap::Parser;
 use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
@@ -12,7 +13,6 @@ use std::io::Read;
 use std::io::Write;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use clap::Parser;
 use std::path::PathBuf;
 use std::time::Instant;
 use typed_arena::Arena;
@@ -53,10 +53,8 @@ impl std::hash::Hash for HashableDirEntry {
     }
 }
 
-
 #[derive(Parser, Debug, Default)]
 pub struct Opt {
-
     pub paths: Vec<PathBuf>,
 
     #[arg(short, long)]
