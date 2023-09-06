@@ -3,6 +3,7 @@ extern crate rayon;
 extern crate walkdir;
 use clap::Parser;
 use rayon::prelude::*;
+use seahash::SeaHasher;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::File;
@@ -13,7 +14,6 @@ use std::path::PathBuf;
 use std::time::Instant;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-use seahash::SeaHasher;
 
 #[derive(Parser, Debug, Default)]
 pub struct Opt {
@@ -126,7 +126,7 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
             if let Ok(bytes_count) = byte_count_file(&current_path) {
                 if bytes_count >= minimum {
                     candidate.size = Some(bytes_count);
-                    return Some(candidate)
+                    return Some(candidate);
                 }
             }
             None
