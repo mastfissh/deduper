@@ -12,11 +12,11 @@ lto = "thin"
 [dependencies]
 walkdir = "2"
 rayon = "1"
-structopt = "0"
 crossbeam-channel = "0"
 typed-arena = "2"
 seahash = "4"
 dashmap = "5"
+clap = { version = "4.4.2", features = ["derive"] }
 
 [lib]
 name = "dupelib"

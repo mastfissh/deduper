@@ -1,8 +1,7 @@
 extern crate crossbeam_channel;
 extern crate rayon;
-extern crate structopt;
 extern crate walkdir;
-
+extern crate clap;
 use crossbeam_channel::Sender;
 use rayon::prelude::*;
 use std::error::Error;
@@ -13,10 +12,9 @@ use std::io::Read;
 use std::io::Write;
 use std::ops::Deref;
 use std::ops::DerefMut;
-
+use clap::Parser;
 use std::path::PathBuf;
 use std::time::Instant;
-use structopt::StructOpt;
 use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -55,24 +53,23 @@ impl std::hash::Hash for HashableDirEntry {
     }
 }
 
-#[derive(StructOpt, Debug, Default)]
+
+#[derive(Parser, Debug, Default)]
 pub struct Opt {
-    #[structopt(name = "paths", parse(from_os_str))]
+
     pub paths: Vec<PathBuf>,
 
-    #[structopt(short = "t", long = "timing")]
+    #[arg(short, long)]
     pub timing: bool,
 
-    #[structopt(short = "d", long = "debug")]
+    #[arg(short, long)]
     pub debug: bool,
 
-    #[structopt(short = "o", long = "output", parse(from_os_str))]
+    #[arg(short, long)]
     pub output: Option<PathBuf>,
-
-    #[structopt(short = "m", long = "minimum")]
+    #[arg(short, long)]
     pub minimum: Option<u64>,
-
-    #[structopt(short = "s", long = "sort")]
+    #[arg(short, long)]
     pub sort: bool,
 }
 
