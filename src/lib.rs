@@ -18,7 +18,7 @@ use std::time::Instant;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
-#[derive(Parser, Debug, Default)]
+#[derive(Parser, Default)]
 pub struct Opt {
     pub paths: Vec<PathBuf>,
 
@@ -96,23 +96,18 @@ fn print_timing_info(now: Instant) {
 }
 
 fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
-    let vec: Vec<DirEntry> = input
+    input
         .par_iter()
         .map(|path| {
             WalkDir::new(path)
                 .into_iter()
                 .filter_entry(|e| !is_hidden(e))
                 .filter_map(is_valid_file)
-                .collect::<Vec<DirEntry>>()
+                .map(|entry| CandidateFile { path: entry })
+                .collect::<Vec<_>>()
         })
         .flatten()
-        .collect();
-    let mut paths = Vec::new();
-    for entry in vec {
-        let item = CandidateFile { path: entry };
-        paths.push(item);
-    }
-    paths
+        .collect()
 }
 
 struct DupeRecords<T>
@@ -231,7 +226,9 @@ fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWi
         .collect()
 }
 
-fn format_results(mut input: Vec<CandidateFileWithSizeAndHash>) -> () {
+fn format_results(
+    mut input: Vec<CandidateFileWithSizeAndHash>,
+) -> Vec<CandidateFileWithSizeAndHash> {
     input.sort_unstable_by(|a, b| {
         let size_cmp = b.size.cmp(&a.size);
         if size_cmp != Ordering::Equal {
@@ -245,7 +242,7 @@ fn format_results(mut input: Vec<CandidateFileWithSizeAndHash>) -> () {
     });
     let mut last_size: u64 = 0;
     let mut last_hash: u64 = 0;
-    for item in input {
+    for item in &input {
         let hash = item.hash;
         if hash != last_hash {
             println!("-------");
@@ -258,20 +255,18 @@ fn format_results(mut input: Vec<CandidateFileWithSizeAndHash>) -> () {
         }
         println!("Path: {} ", item.path.path().display());
     }
+    return input;
 }
 
-#[derive(Clone)]
 struct CandidateFile {
     path: DirEntry,
 }
 
-#[derive(Clone)]
 struct CandidateFileWithSize {
     path: DirEntry,
     size: u64,
 }
 
-#[derive(Clone)]
 pub struct CandidateFileWithSizeAndHash {
     path: DirEntry,
     size: u64,
@@ -305,11 +300,8 @@ pub fn detect_dupes(options: Opt) -> Vec<CandidateFileWithSizeAndHash> {
     if options.debug {
         println!("{} dupes after full file hashing", paths.len());
     }
-
-    format_results(paths.clone());
-
     if options.timing {
         print_timing_info(now);
     }
-    paths
+    format_results(paths)
 }
