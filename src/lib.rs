@@ -43,7 +43,7 @@ fn hash_file(path: &DirEntry) -> BoxResult<u64> {
     let mut hasher = SeaHasher::new();
     let mut reader = BufReader::new(file);
 
-    let mut buffer = [0; 64000];
+    let mut buffer = vec![0; 512000];
 
     loop {
         let count = reader.read(&mut buffer)?;
@@ -118,12 +118,37 @@ fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
 }
 
 fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFile> {
+    let input: Vec<_> = input
+        .par_iter()
+        .cloned()
+        .filter_map(|mut candidate| {
+            let current_path = &candidate.path;
+            if let Ok(bytes_count) = byte_count_file(&current_path) {
+                if bytes_count >= minimum {
+                    candidate.size = Some(bytes_count);
+                    return Some(candidate)
+                }
+            }
+            None
+        })
+        .collect();
+
+    let mut hashes = HashSet::new();
+    let mut dupe_hashes = HashSet::new();
+    for candidate in &input {
+        if let Some(hash) = candidate.size {
+            if hashes.contains(&hash) {
+                dupe_hashes.insert(hash);
+            } else {
+                hashes.insert(hash);
+            }
+        }
+    }
+
     let mut out = Vec::new();
-    for mut candidate in input {
-        let current_path = &candidate.path;
-        if let Ok(bytes_count) = byte_count_file(&current_path) {
-            if bytes_count >= minimum {
-                candidate.size = Some(bytes_count);
+    for candidate in input {
+        if let Some(hash) = candidate.size {
+            if dupe_hashes.contains(&hash) {
                 out.push(candidate)
             }
         }

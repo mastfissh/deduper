@@ -14,7 +14,6 @@ walkdir = "2"
 rayon = "1"
 seahash = "4"
 clap = { version = "4.4.2", features = ["derive"] }
-
 [lib]
 name = "dupelib"
 path = "src/lib.rs"
