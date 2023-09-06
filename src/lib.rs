@@ -105,7 +105,7 @@ fn hash_file(path: &DirEntry) -> BoxResult<u64> {
 }
 
 // given a path, returns a hash of the first few bytes of the file at that path
-fn hash_start_file(path: &HashableDirEntry) -> BoxResult<u64> {
+fn hash_start_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
     let mut reader = BufReader::new(file);
@@ -185,23 +185,38 @@ fn cull_by_filesize(
     out
 }
 
-fn cull_by_start(input: DashMap<&HashableDirEntry, u64>) -> DashMap<&HashableDirEntry, u64> {
-    let dupes = DashMap::new();
-    let file_hashes = DashMap::new();
-    input
-        .into_iter()
-        .par_bridge()
-        .for_each(|(current_path, size)| {
-            if size < 640_000 {
-                dupes.insert(current_path, size);
-            } else if let Ok(hash) = hash_start_file(current_path) {
-                if let Some(path) = file_hashes.insert(hash, current_path) {
-                    dupes.insert(current_path, size);
-                    dupes.insert(path, size);
-                }
+fn cull_by_start(
+    mut input: Vec<CandidateFile>,
+) -> Vec<CandidateFile> {
+
+    for candidate in input.iter_mut() {
+        let current_path = &candidate.path;
+        if let Ok(hash) = hash_start_file(current_path) {
+            candidate.start_hash = Some(hash);
+        }
+    }
+
+    let mut hashes = HashSet::new();
+    let mut dupe_hashes = Vec::new();
+    for candidate in &input {
+        if let Some(hash) = candidate.start_hash {
+           if hashes.contains(&hash){
+                dupe_hashes.push(hash)
+            } else {
+                hashes.insert(hash);
             }
-        });
-    dupes
+        }
+    }
+
+    let mut out = Vec::new();
+    for candidate in input {
+        if let Some(hash) = candidate.start_hash{
+            if dupe_hashes.contains(&hash){
+                out.push(candidate)
+            }
+        }
+    }
+    out
 }
 
 fn cull_by_hash(
@@ -283,7 +298,7 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
     }
 
     // maybe_send_progress(&progress, "Culling by start");
-    // let paths = cull_by_start(paths);
+    let paths = cull_by_start(paths);
 
     // if options.debug {
     //     println!("{} potential dupes after start cull", paths.len());
