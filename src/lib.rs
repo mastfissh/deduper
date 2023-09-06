@@ -117,7 +117,7 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
     let input: Vec<_> = input
         .par_iter()
         .cloned()
-        .filter_map(|mut candidate| {
+        .filter_map(|candidate| {
             let current_path = &candidate.path;
             if let Ok(bytes_count) = byte_count_file(&current_path) {
                 if bytes_count >= minimum {
@@ -155,7 +155,7 @@ fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSize
     let input: Vec<_> = input
         .par_iter()
         .cloned()
-        .filter_map(|mut candidate| {
+        .filter_map(|candidate| {
             let current_path = &candidate.path;
             if let Ok(hash) = hash_start_file(current_path) {
                 let res = CandidateFileWithSizeAndHash {
