@@ -2,9 +2,11 @@ extern crate bytesize;
 extern crate clap;
 extern crate rayon;
 extern crate walkdir;
+use bytesize::ByteSize;
 use clap::Parser;
 use rayon::prelude::*;
 use seahash::SeaHasher;
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::File;
@@ -113,6 +115,38 @@ fn walk_dirs(input: Vec<PathBuf>) -> Vec<CandidateFile> {
     paths
 }
 
+struct DupeRecords<T>
+where
+    T: std::cmp::Eq + std::hash::Hash,
+{
+    hashes: HashSet<T>,
+    dupe_hashes: HashSet<T>,
+}
+
+impl<T> DupeRecords<T>
+where
+    T: std::cmp::Eq + std::hash::Hash,
+{
+    fn new() -> DupeRecords<T> {
+        DupeRecords {
+            hashes: HashSet::<T>::new(),
+            dupe_hashes: HashSet::<T>::new(),
+        }
+    }
+
+    fn load(&mut self, datum: T) {
+        if self.hashes.contains(&datum) {
+            self.dupe_hashes.insert(datum);
+        } else {
+            self.hashes.insert(datum);
+        }
+    }
+
+    fn contains(&self, datum: T) -> bool {
+        return self.dupe_hashes.contains(&datum);
+    }
+}
+
 fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFileWithSize> {
     let input: Vec<_> = input
         .into_par_iter()
@@ -130,23 +164,15 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
             None
         })
         .collect();
-    let mut hashes = HashSet::new();
-    let mut dupe_hashes = HashSet::new();
-    for candidate in &input {
-        if hashes.contains(&candidate.size) {
-            dupe_hashes.insert(candidate.size);
-        } else {
-            hashes.insert(candidate.size);
-        }
-    }
 
-    let mut out = Vec::new();
-    for candidate in input {
-        if dupe_hashes.contains(&candidate.size) {
-            out.push(candidate)
-        }
+    let mut dupes = DupeRecords::new();
+    for candidate in &input {
+        dupes.load(candidate.size)
     }
-    out
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.size))
+        .collect()
 }
 
 fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSizeAndHash> {
@@ -166,23 +192,15 @@ fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSize
         })
         .collect();
 
-    let mut hashes = HashSet::new();
-    let mut dupe_hashes = HashSet::new();
+    let mut dupes = DupeRecords::new();
     for candidate in &input {
-        if hashes.contains(&candidate.hash) {
-            dupe_hashes.insert(candidate.hash);
-        } else {
-            hashes.insert(candidate.hash);
-        }
+        dupes.load(candidate.hash)
     }
 
-    let mut out = Vec::new();
-    for candidate in input {
-        if dupe_hashes.contains(&candidate.hash) {
-            out.push(candidate)
-        }
-    }
-    out
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.hash))
+        .collect()
 }
 
 fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWithSizeAndHash> {
@@ -202,27 +220,17 @@ fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWi
         })
         .collect();
 
-    let mut hashes = HashSet::new();
-    let mut dupe_hashes = HashSet::new();
+    let mut dupes = DupeRecords::new();
     for candidate in &input {
-        if hashes.contains(&candidate.hash) {
-            dupe_hashes.insert(candidate.hash);
-        } else {
-            hashes.insert(candidate.hash);
-        }
+        dupes.load(candidate.hash)
     }
 
-    let mut out = Vec::new();
-    for candidate in input {
-        if dupe_hashes.contains(&candidate.hash) {
-            out.push(candidate)
-        }
-    }
-    out
+    input
+        .into_iter()
+        .filter(|candidate| dupes.contains(candidate.hash))
+        .collect()
 }
-use std::cmp::Ordering;
 
-use bytesize::ByteSize;
 fn format_results(mut input: Vec<CandidateFileWithSizeAndHash>) -> () {
     input.sort_unstable_by(|a, b| {
         let size_cmp = b.size.cmp(&a.size);
