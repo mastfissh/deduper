@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate rayon;
 extern crate walkdir;
+extern crate bytesize;
 use clap::Parser;
 use rayon::prelude::*;
 use seahash::SeaHasher;
@@ -227,13 +228,36 @@ fn cull_by_hash(input: Vec<CandidateFile>) -> Vec<CandidateFile> {
     }
     out
 }
+use std::cmp::Ordering;
 
-fn format_results(input: Vec<CandidateFile>) -> Vec<String> {
-    let mut out = Vec::new();
+use bytesize::ByteSize;
+fn format_results(mut input: Vec<CandidateFile>) -> () {
+    input.sort_unstable_by(|a, b|{
+       let size_cmp = b.size.partial_cmp(&a.size).unwrap();
+       if size_cmp != Ordering::Equal {
+        return size_cmp
+       }
+       let hash_cmp = b.full_hash.partial_cmp(&a.full_hash).unwrap();
+       if hash_cmp != Ordering::Equal {
+        return hash_cmp
+       }
+        format!("{}",b.path.path().display()).partial_cmp(&format!("{}",a.path.path().display())).unwrap()
+    });
+    let mut last_size : u64 = 0;
+    let mut last_hash : u64 = 0;
     for item in input {
-        out.push(format!("{}: \n", item.path.path().display()))
+        let hash = item.full_hash.unwrap();
+        if hash != last_hash{
+            println!("-------");
+            last_hash = hash;
+        }
+        let size = item.size.unwrap();
+        if size != last_size{
+            println!("Size: {} ", ByteSize(size));
+            last_size = size;
+        }
+        println!("Path: {} ", item.path.path().display());
     }
-    out
 }
 
 #[derive(Clone)]
@@ -244,7 +268,7 @@ struct CandidateFile {
     full_hash: Option<u64>,
 }
 
-pub fn detect_dupes(options: Opt) -> Vec<String> {
+pub fn detect_dupes(options: Opt) -> () {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
 
