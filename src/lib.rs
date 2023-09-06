@@ -45,9 +45,7 @@ fn hash_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
     let mut reader = BufReader::new(file);
-
     let mut buffer = vec![0; 512000];
-
     loop {
         let count = reader.read(&mut buffer)?;
         if count == 0 {
@@ -55,7 +53,6 @@ fn hash_file(path: &DirEntry) -> BoxResult<u64> {
         }
         hasher.write(&buffer[..count]);
     }
-
     Ok(hasher.finish())
 }
 
@@ -159,7 +156,6 @@ fn cull_by_filesize(input: Vec<CandidateFile>, minimum: u64) -> Vec<CandidateFil
             None
         })
         .collect();
-
     let mut dupes = DupeRecords::new();
     for candidate in &input {
         dupes.load(candidate.size)
@@ -186,12 +182,10 @@ fn cull_by_start(input: Vec<CandidateFileWithSize>) -> Vec<CandidateFileWithSize
             None
         })
         .collect();
-
     let mut dupes = DupeRecords::new();
     for candidate in &input {
         dupes.load(candidate.hash)
     }
-
     input
         .into_iter()
         .filter(|candidate| dupes.contains(candidate.hash))
@@ -214,12 +208,10 @@ fn cull_by_hash(input: Vec<CandidateFileWithSizeAndHash>) -> Vec<CandidateFileWi
             None
         })
         .collect();
-
     let mut dupes = DupeRecords::new();
     for candidate in &input {
         dupes.load(candidate.hash)
     }
-
     input
         .into_iter()
         .filter(|candidate| dupes.contains(candidate.hash))
@@ -276,27 +268,19 @@ pub struct CandidateFileWithSizeAndHash {
 pub fn detect_dupes(options: Opt) -> Vec<CandidateFileWithSizeAndHash> {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
-
     if options.debug {
         println!("{} files found ", paths.len());
     }
-
     let minimum = options.minimum.unwrap_or(1);
-
     let paths = cull_by_filesize(paths, minimum);
-
     if options.debug {
         println!("{} potential dupes after filesize cull", paths.len());
     }
-
     let paths = cull_by_start(paths);
-
     if options.debug {
         println!("{} potential dupes after start cull", paths.len());
     }
-
     let paths = cull_by_hash(paths);
-
     if options.debug {
         println!("{} dupes after full file hashing", paths.len());
     }
