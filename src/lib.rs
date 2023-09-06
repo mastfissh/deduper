@@ -199,7 +199,7 @@ fn cull_by_hash(input: Vec<CandidateFile>) -> Vec<CandidateFile> {
         .map(|mut candidate| {
             let current_path = &candidate.path;
             if let Ok(hash) = hash_file(current_path) {
-                candidate.start_hash = Some(hash);
+                candidate.full_hash = Some(hash);
             }
             candidate
         })
