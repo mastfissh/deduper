@@ -1,25 +1,22 @@
 extern crate clap;
-extern crate crossbeam_channel;
 extern crate rayon;
 extern crate walkdir;
-use clap::Parser;
 use crossbeam_channel::Sender;
+use clap::Parser;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
 use std::hash::Hasher;
 use std::io::BufReader;
 use std::io::Read;
-use std::io::Write;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::time::Instant;
-use typed_arena::Arena;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 use std::collections::HashSet;
-use dashmap::DashMap;
+
 
 struct HashableDirEntry(DirEntry);
 
@@ -64,15 +61,7 @@ pub struct Opt {
     pub debug: bool,
 
     #[arg(short, long)]
-    pub output: Option<PathBuf>,
-    #[arg(short, long)]
     pub minimum: Option<u64>,
-    #[arg(short, long)]
-    pub sort: bool,
-}
-
-impl Opt {
-
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
@@ -85,7 +74,7 @@ fn byte_count_file(path: &DirEntry) -> BoxResult<u64> {
 
 use seahash::SeaHasher;
 
-// given a path, returns a hash of all the bytes of the file at that path
+// given a path, returns a hash of the bytes of the file at that path
 fn hash_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
@@ -104,7 +93,7 @@ fn hash_file(path: &DirEntry) -> BoxResult<u64> {
     Ok(hasher.finish())
 }
 
-// given a path, returns a hash of the first few bytes of the file at that path
+// given a path, returns a hash of the first 64k bytes of the file at that path
 fn hash_start_file(path: &DirEntry) -> BoxResult<u64> {
     let file = File::open(path.path())?;
     let mut hasher = SeaHasher::new();
@@ -186,15 +175,16 @@ fn cull_by_filesize(
 }
 
 fn cull_by_start(
-    mut input: Vec<CandidateFile>,
+    input: Vec<CandidateFile>,
 ) -> Vec<CandidateFile> {
 
-    for candidate in input.iter_mut() {
+    let input: Vec<_> = input.par_iter().cloned().map(|mut candidate| {
         let current_path = &candidate.path;
         if let Ok(hash) = hash_start_file(current_path) {
             candidate.start_hash = Some(hash);
         }
-    }
+        candidate
+    }).collect();
 
     let mut hashes = HashSet::new();
     let mut dupe_hashes = Vec::new();
@@ -220,15 +210,16 @@ fn cull_by_start(
 }
 
 fn cull_by_hash(
-    mut input: Vec<CandidateFile>,
+    input: Vec<CandidateFile>,
 ) -> Vec<CandidateFile> {
 
-    for candidate in input.iter_mut() {
+    let input: Vec<_> = input.par_iter().cloned().map(|mut candidate| {
         let current_path = &candidate.path;
         if let Ok(hash) = hash_file(current_path) {
-            candidate.full_hash = Some(hash);
+            candidate.start_hash = Some(hash);
         }
-    }
+        candidate
+    }).collect();
 
     let mut hashes = HashSet::new();
     let mut dupe_hashes = Vec::new();
@@ -270,7 +261,7 @@ fn maybe_send_progress<'a>(progress: &Option<Sender<&'a str>>, message: &'a str)
         p.send(message).unwrap();
     }
 }
-
+#[derive(Clone)]
 struct CandidateFile {
    path: DirEntry,
    size: Option<u64>,
@@ -297,31 +288,25 @@ pub fn detect_dupes(options: Opt, progress: Option<Sender<&str>>) -> Vec<String>
         println!("{} potential dupes after filesize cull", paths.len());
     }
 
-    // maybe_send_progress(&progress, "Culling by start");
+    maybe_send_progress(&progress, "Culling by start");
     let paths = cull_by_start(paths);
 
-    // if options.debug {
-    //     println!("{} potential dupes after start cull", paths.len());
-    // }
+    if options.debug {
+        println!("{} potential dupes after start cull", paths.len());
+    }
 
     maybe_send_progress(&progress, "Culling by hash");
     let paths = cull_by_hash(paths);
 
-    // if options.debug {
-    //     println!("{} dupes after full file hashing", confirmed_dupes.len());
-    // }
-    // if options.sort {
-    //     confirmed_dupes.sort_by_cached_key(|confirmed_dup| confirmed_dup.2);
-    // }
+    if options.debug {
+        println!("{} dupes after full file hashing", paths.len());
+    }
+
     maybe_send_progress(&progress, "Formatting");
     let output_strings = format_results(paths);
 
-    // if let Some(path) = options.output {
-    //     let mut f = File::create(path).unwrap();
-    //     f.write_all(output_strings.join("").as_bytes()).unwrap();
-    // }
-    // if options.timing {
-    //     print_timing_info(now);
-    // }
+    if options.timing {
+        print_timing_info(now);
+    }
     output_strings
 }

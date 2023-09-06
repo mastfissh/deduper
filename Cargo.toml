@@ -13,9 +13,7 @@ lto = "thin"
 walkdir = "2"
 rayon = "1"
 crossbeam-channel = "0"
-typed-arena = "2"
 seahash = "4"
-dashmap = "5"
 clap = { version = "4.4.2", features = ["derive"] }
 
 [lib]
