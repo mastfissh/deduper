@@ -264,13 +264,13 @@ struct CandidateFileWithSize {
 }
 
 #[derive(Clone)]
-struct CandidateFileWithSizeAndHash {
+pub struct CandidateFileWithSizeAndHash {
     path: DirEntry,
     size: u64,
     hash: u64,
 }
 
-pub fn detect_dupes(options: Opt) -> () {
+pub fn detect_dupes(options: Opt) -> Vec<CandidateFileWithSizeAndHash> {
     let now = Instant::now();
     let paths = walk_dirs(options.paths);
 
@@ -298,10 +298,10 @@ pub fn detect_dupes(options: Opt) -> () {
         println!("{} dupes after full file hashing", paths.len());
     }
 
-    let output_strings = format_results(paths);
+    format_results(paths.clone());
 
     if options.timing {
         print_timing_info(now);
     }
-    output_strings
+    paths
 }
